@@ -339,6 +339,8 @@ async function tracta(m, sender) {
       await marcaReal(m.lloc, tabId, true);
       return null;
     case "estat": {
+      // Si fins ara no es podia (l'interruptor «Permet els scripts d'usuari» era apagat), ho torna a provar.
+      if (scriptsUsuari === false) await registra();
       const p = pestanyes.get(m.tabId) || {};
       return { cfg: perAPagina(), confiancaUsuari: cfg.confianca, realAuto: cfg.realAuto, scriptsUsuari,
         lloc: p.lloc || m.lloc || "", galetes: p.galetes || [], funcionament: p.funcionament || [], avis: p.avis || null };
