@@ -6,6 +6,11 @@
 /avis     un avís de galetes com el d'OneTrust.
 /entrada  una pàgina d'entrada amb contrasenya.
 /eco      torna les capçaleres que ha rebut.
+/zona     el que la pàgina veu de l'hora i l'idioma.
+/marcs    marcs creats al moment, llegits abans que hi arribi l'extensió.
+/treballadors  un treballador de fitxer, un de blob i un de compartit.
+/antifrau una botiga que carrega un sistema contra el frau.
+/simple   una pàgina que només diu el navegador i quantes vegades s'ha carregat.
 /pais     com cloudflare.com/cdn-cgi/trace: «loc=ES». /pais?posa=DE el canvia.
 """
 import json
@@ -62,6 +67,58 @@ ENTRADA = """<!doctype html><html><head><meta charset="utf-8"><title>Entrada</ti
 </body></html>"""
 
 
+INFO_TREBALLADOR = ("({ua: navigator.userAgent, nuclis: navigator.hardwareConcurrency, idioma: navigator.language, "
+                    "zona: Intl.DateTimeFormat().resolvedOptions().timeZone, offset: new Date().getTimezoneOffset()})")
+
+ZONA = """<!doctype html><html><head><meta charset="utf-8"></head><body><pre id="info">...</pre><script>
+const r = {};
+r.offset = new Date(2024,0,15,10,30).getTimezoneOffset();
+r.hores = new Date(2024,0,15,10,30).getHours();
+r.utc = new Date(2024,0,15,10,30).getUTCHours();
+r.parse = Date.parse("2024-01-15T10:30:00") === Date.UTC(2024,0,15,1,30);
+r.text = String(new Date(Date.UTC(2024,0,15,1,30)));
+r.intl = Intl.DateTimeFormat().resolvedOptions().timeZone;
+r.locale = new Intl.NumberFormat().resolvedOptions().locale;
+r.local = new Date(Date.UTC(2024,0,15,1,30)).toLocaleTimeString("en-US", {hour12: false});
+r.temporal = typeof Temporal !== "undefined" ? Temporal.Now.timeZoneId() : "sense Temporal";
+r.dateFn = Date().includes("GMT+0900");
+r.instanceof = new Date() instanceof Date;
+r.setHours = (() => { const x = new Date(2024,0,15,10,30); x.setHours(23); return x.getHours() === 23 && x.getDate() === 15; })();
+document.getElementById('info').textContent = JSON.stringify(r);
+</script></body></html>"""
+
+MARCS = """<!doctype html><html><head><meta charset="utf-8"></head><body><pre id="info">...</pre><script>
+const r = {top: navigator.userAgent};
+window.onerror = (m, f, l) => { r.error = m + " (línia " + l + ")"; document.getElementById('info').textContent = JSON.stringify(r); };
+const f = document.createElement('iframe'); document.body.appendChild(f);
+r.marc = f.contentWindow.navigator.userAgent;
+r.index = window[0].navigator.platform;
+r.zonaMarc = f.contentWindow.Intl.DateTimeFormat().resolvedOptions().timeZone;
+const div = document.createElement('div'); div.innerHTML = '<iframe></iframe>'; document.body.appendChild(div);
+r.innerHTML = window[1].navigator.userAgent;
+r.mateix = f.contentWindow === window[0];
+r.plataformaMarc = f.contentWindow.navigator.platform;
+r.topPlataforma = navigator.platform;
+const f3 = document.createElement('iframe'); document.body.append(f3);
+r.cookieMarc = (f3.contentDocument.cookie = "_ga=GA1.1.444444444.1700000000; path=/", document.cookie);
+document.getElementById('info').textContent = JSON.stringify(r);
+</script></body></html>"""
+
+TREBALLADORS = """<!doctype html><html><head><meta charset="utf-8"></head><body><pre id="info">...</pre><script>
+const r = {top: navigator.userAgent};
+const codi = "postMessage(" + %s + ")";
+new Worker('/w.js').onmessage = e => r.fitxer = e.data;
+new Worker(URL.createObjectURL(new Blob([codi], {type: 'text/javascript'}))).onmessage = e => r.blob = e.data;
+try { const s = new SharedWorker('/sh.js'); s.port.onmessage = e => r.compartit = e.data; s.port.start(); } catch (e) { r.compartit = 'error ' + e; }
+setTimeout(() => document.getElementById('info').textContent = JSON.stringify(r), 2000);
+</script></body></html>""" % json.dumps(INFO_TREBALLADOR)
+
+SIMPLE = """<!doctype html><html><head><meta charset="utf-8"></head><body><pre id="info">...</pre>%s<script>
+document.getElementById('info').textContent = JSON.stringify({userAgent: navigator.userAgent, cookie: document.cookie,
+  carrega: (sessionStorage.n = (Number(sessionStorage.n) || 0) + 1)});
+</script></body></html>"""
+
+
 class Gestor(BaseHTTPRequestHandler):
     def log_message(self, *a):
         pass
@@ -90,6 +147,24 @@ class Gestor(BaseHTTPRequestHandler):
                                          "pref=1; Max-Age=33696000; Path=/"])
         elif u.path == "/entrada":
             self._envia(ENTRADA)
+        elif u.path == "/zona":
+            self._envia(ZONA)
+        elif u.path == "/marcs":
+            self._envia(MARCS)
+        elif u.path == "/treballadors":
+            self._envia(TREBALLADORS)
+        elif u.path == "/w.js":
+            self._envia("postMessage(" + INFO_TREBALLADOR + ");", "text/javascript")
+        elif u.path == "/sh.js":
+            self._envia("onconnect = e => e.ports[0].postMessage(" + INFO_TREBALLADOR + ");", "text/javascript")
+        elif u.path == "/antifrau":
+            self._envia(SIMPLE % '<script src="http://h.online-metrix.net:8765/fp.js"></script>')
+        elif u.path == "/fp.js":
+            self._envia("window.__fp = 1;", "text/javascript")
+        elif u.path == "/simple":
+            marc = '<iframe src="http://diari.test:8765/tercer"></iframe>' if "marc" in q else ""
+            self._envia(SIMPLE % marc, galetes=["_ga=GA1.1.111111111.1700000000; Max-Age=63072000; Path=/",
+                                                "sessio=banc123; Max-Age=86400; Path=/"])
         elif u.path == "/avis":
             self._envia(AVIS)
         elif u.path == "/eco":

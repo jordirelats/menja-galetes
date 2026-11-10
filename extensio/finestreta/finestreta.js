@@ -45,7 +45,12 @@ async function pinta() {
     cos.append(h("div.buit", "Aquí no hi ha cap web per menjar-se."));
     return;
   }
-  const confiat = MG.esConfiat(lloc, cfg.confianca);
+  let host = "";
+  try { host = new URL(tab.url).hostname; } catch (e) { /* res */ }
+  const usuari = (cfg.confianca || []).some((w) => MG.lloc(w) === lloc);
+  const sempre = MG.esSempreReal(host);
+  const auto = (cfg.realAuto || []).includes(lloc);
+  const confiat = usuari || sempre || auto;
   const etiq = !cfg.actiu ? h("span.etiq.apagat", "Apagat") : confiat ? h("span.etiq.conf", "De confiança") : h("span.etiq.disf", "Disfressat");
   cos.append(h("div.web", "🌐", h("span.domini", lloc), etiq));
 
@@ -56,16 +61,20 @@ async function pinta() {
 
   if (confiat) {
     const img = h("img"); img.src = "../icones/galeta.svg";
-    const sempre = MG.esSempreReal(lloc);
-    const auto = !sempre && (e.realAuto || []).includes(lloc);
     const explica = sempre
-      ? "És un banc, un web de pagaments o de l'Administració. Els seus sistemes contra el frau han de veure el navegador de debò."
+      ? "És un banc, un web de pagaments o d'un govern. Els seus sistemes contra el frau han de veure el navegador de debò."
       : auto
-        ? "Aquest web demana una contrasenya o una targeta. Hi vas sense disfressa, perquè els seus sistemes contra el frau i contra els comptes robats funcionin."
+        ? "Aquest web demana una contrasenya o una targeta, fa servir un sistema contra el frau, o el seu certificat és d'un banc o d'una administració. Hi vas sense disfressa, perquè aquests sistemes funcionin."
         : "Les galetes d'aquest web es queden, i hi vas sense disfressa, perquè no et tregui de la sessió.";
     cos.append(h("div.heroi", img, h("div",
       h("div.mitja.verd", sempre || auto ? "Aquí hi vas amb la teva identitat real" : "Aquí no em menjo res"),
       h("div.sota", explica))));
+    if ((sempre || auto) && e.galetes.length) {
+      cos.append(h("div.titol-llista", "Galetes de tercers i de seguiment · menjades igualment"));
+      cos.append(h("div.gls", e.galetes.slice(0, 8).map((g) =>
+        h("div.gl", h("code", g.nom), h("s", escurça(g.original || "(buida)")), h("span.fl", "→"), h("b", escurça(g.fals)))
+      )));
+    }
     if (!sempre && !auto) {
       const b = h("button.sec", "Ja no hi confio");
       b.onclick = () => browser.runtime.sendMessage({ tipus: "confia", lloc, si: false, tabId: tab.id }).then(() => window.close());

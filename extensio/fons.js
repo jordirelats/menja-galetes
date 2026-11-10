@@ -45,9 +45,8 @@ async function carregaConfig() {
 
 // La configuració que va a cada pàgina. «confianca» hi porta també els webs automàtics.
 function perAPagina() {
-  const { actiu, avisos, identificador, disfressa, pais, falseja, secret, epoch, epochLloc, paisIP, versio } = cfg;
-  const confianca = [...cfg.confianca, ...cfg.realAuto];
-  return { actiu, avisos, identificador, disfressa, pais, falseja, confianca, secret, epoch, epochLloc, paisIP, versio };
+  const { actiu, avisos, identificador, disfressa, pais, falseja, confianca, realAuto, secret, epoch, epochLloc, paisIP, versio } = cfg;
+  return { actiu, avisos, identificador, disfressa, pais, falseja, confianca, realAuto, secret, epoch, epochLloc, paisIP, versio };
 }
 
 async function registra() {
@@ -77,6 +76,11 @@ function disfressaDe(lloc) {
 
 const clauGaleta = (c) => `${c.domain.replace(/^\./, "")}|${c.name}`;
 const confiat = (lloc) => MG.esConfiat(lloc, cfg.confianca) || cfg.realAuto.includes(lloc);
+// Dels webs de confiança de l'usuari no es toca res. Als «reals» (bancs, governs, webs amb
+// contrasenya o amb sistemes contra el frau) no hi ha disfressa, però les galetes de
+// tercers i de seguiment se les menja igualment.
+const deConfianca = (lloc) => !!lloc && (cfg.confianca || []).some((w) => MG.lloc(w) === lloc);
+const esReal = (host) => !!host && (MG.esSempreReal(host) || cfg.realAuto.includes(MG.lloc(host)));
 
 /* ---- Pestanyes ---- */
 
@@ -130,7 +134,7 @@ function obert(lloc) {
 }
 
 function potserMenja(lloc) {
-  if (!lloc || !cfg.actiu || confiat(lloc) || obert(lloc) || pendents.has(lloc)) return;
+  if (!lloc || !cfg.actiu || deConfianca(lloc) || obert(lloc) || pendents.has(lloc)) return;
   pendents.set(lloc, setTimeout(() => menja(lloc, {}), cfg.retardMenjar * 1000));
 }
 
@@ -142,8 +146,9 @@ function potserMenja(lloc) {
  */
 async function menja(lloc, { obertes = false, protegides = false } = {}) {
   pendents.delete(lloc);
-  if (!lloc || confiat(lloc)) return 0;
+  if (!lloc || deConfianca(lloc)) return 0;
   if (!obertes && obert(lloc)) return 0;
+  const real = esReal(lloc);
   const llistes = [];
   try { llistes.push(await browser.cookies.getAll({ domain: lloc })); } catch (e) { /* res */ }
   for (const esquema of ["https://", "http://"]) {
@@ -157,6 +162,13 @@ async function menja(lloc, { obertes = false, protegides = false } = {}) {
       if (vistes.has(id)) continue;
       vistes.add(id);
       if (!protegides && cfg.protegides.has(clauGaleta(c)) && !MG.esSeguiment(c.name)) continue;
+      // En un banc o un govern: només les de tercers i les de seguiment, i mai les d'un banc,
+      // un pagament o un sistema contra el frau.
+      if (real) {
+        const tercer = !!c.partitionKey || MG.lloc(c.domain) !== lloc;
+        if (MG.esProtegitFrau(c.domain.replace(/^\./, "")) && !(MG.esSeguiment(c.name) && MG.lloc(c.domain) === lloc)) continue;
+        if (!tercer && !MG.esSeguiment(c.name)) continue;
+      }
       const url = (c.secure ? "https://" : "http://") + c.domain.replace(/^\./, "") + c.path;
       const det = { url, name: c.name, storeId: c.storeId };
       if (c.partitionKey) det.partitionKey = c.partitionKey;
@@ -166,7 +178,7 @@ async function menja(lloc, { obertes = false, protegides = false } = {}) {
   }
   // Les galetes amagades (localStorage, IndexedDB). Als webs on ja hi havia una sessió
   // abans d'instal·lar l'extensió no, perquè sovint hi guarden l'entrada.
-  if (protegides || !llocsProtegits.has(lloc)) {
+  if (!real && (protegides || !llocsProtegits.has(lloc))) {
     try { await browser.browsingData.remove({ hostnames: [lloc] }, { localStorage: true, indexedDB: true }); } catch (e) { /* res */ }
   }
   if (protegides) {
@@ -184,23 +196,97 @@ async function menja(lloc, { obertes = false, protegides = false } = {}) {
 
 /* ---- Peticions ---- */
 
-function llocSuperiorDe(det) {
-  if (det.type === "main_frame") return MG.llocDeUrl(det.url);
+// El nom (host) del web de dalt de tot de la pestanya. Les peticions que no són de cap
+// pestanya (treballadors compartits, service workers) fan servir el document que les fa.
+function hostSuperiorDe(det) {
+  const host = (url) => { try { const u = new URL(url); return /^https?:$/.test(u.protocol) ? u.hostname : ""; } catch (e) { return ""; } };
+  if (det.type === "main_frame") return host(det.url);
   const fa = det.frameAncestors;
-  if (fa && fa.length) return MG.llocDeUrl(fa[fa.length - 1].url);
-  if (det.documentUrl) return MG.llocDeUrl(det.documentUrl);
+  if (fa && fa.length) return host(fa[fa.length - 1].url);
+  if (det.documentUrl) return host(det.documentUrl);
+  if (det.tabId < 0) return host(det.originUrl || "");
   const p = pestanyes.get(det.tabId);
   return p ? p.lloc : "";
 }
+const llocSuperiorDe = (det) => MG.lloc(hostSuperiorDe(det));
+// Un web de confiança, o que sempre va amb la identitat real (bancs, governs…).
+const confiatHost = (host) => !!host && (confiat(MG.lloc(host)) || MG.esSempreReal(host));
+
+// Un web que ha de veure el navegador de debò a partir d'ara (automàtic).
+const marcant = new Set();
+async function marcaReal(lloc, tabId, recarrega) {
+  if (!lloc || confiat(lloc) || marcant.has(lloc)) return;
+  marcant.add(lloc);
+  cfg.realAuto.push(lloc);
+  await browser.storage.local.set({ realAuto: cfg.realAuto });
+  disfresses.delete(lloc);
+  await registra();
+  marcant.delete(lloc);
+  if (recarrega && tabId >= 0) browser.tabs.reload(tabId);
+}
+
+// Els sistemes contra el frau es detecten tan aviat com la pàgina els demana, i també si el
+// Firefox els bloqueja (la protecció contra el rastreig en bloqueja alguns).
+function detectaAntifrau(det) {
+  if (!cfg.actiu || det.tabId < 0) return;
+  let host;
+  try { host = new URL(det.url).hostname; } catch (e) { return; }
+  if (!MG.esAntifrau(host)) return;
+  const hostSup = hostSuperiorDe(det);
+  const lloc = MG.lloc(hostSup);
+  if (!lloc || deConfianca(lloc) || esReal(hostSup)) return;
+  marcaReal(lloc, det.tabId, true);
+}
+browser.webRequest.onBeforeRequest.addListener(detectaAntifrau, { urls: ["<all_urls>"] });
+browser.webRequest.onErrorOccurred.addListener(detectaAntifrau, { urls: ["<all_urls>"] });
+
+// Afegeix la disfressa al començament de l'script d'un treballador mentre baixa.
+function injectaTreballador(requestId, codi) {
+  let filtre;
+  try { filtre = browser.webRequest.filterResponseData(requestId); } catch (e) { return false; }
+  const enc = new TextEncoder();
+  let primer = true;
+  filtre.ondata = (e) => {
+    if (!primer) { filtre.write(e.data); return; }
+    primer = false;
+    let dades = new Uint8Array(e.data);
+    if (dades.length >= 3 && dades[0] === 0xEF && dades[1] === 0xBB && dades[2] === 0xBF) {
+      filtre.write(dades.subarray(0, 3));           // la marca BOM, al seu lloc
+      dades = dades.subarray(3);
+    }
+    // «"use strict"» ha de continuar sent la primera línia de l'script.
+    const m = /^\s*(['"])use strict\1;?/.exec(new TextDecoder().decode(dades.subarray(0, 200)));
+    if (m) {
+      const n = enc.encode(m[0]).length;
+      filtre.write(dades.subarray(0, n));
+      dades = dades.subarray(n);
+    }
+    filtre.write(enc.encode(codi));
+    filtre.write(dades);
+  };
+  filtre.onstop = () => { if (primer) filtre.write(enc.encode(codi)); filtre.close(); };
+  filtre.onerror = () => {};
+  return true;
+}
 
 function abansEnviar(det) {
-  if (!cfg.actiu || det.tabId < 0) return {};
-  const lloc = llocSuperiorDe(det);
-  if (det.type === "main_frame" && lloc) estatPestanya(det.tabId, lloc);
-  if (!lloc || confiat(lloc) || confiat(MG.llocDeUrl(det.url))) return {};
+  if (!cfg.actiu) return {};
+  const hs = det.requestHeaders;
+  const dest = ((hs.find((h) => h.name.toLowerCase() === "sec-fetch-dest") || {}).value || "").toLowerCase();
+  const treballador = /^(worker|sharedworker|serviceworker)$/.test(dest);
+  let hostSup = hostSuperiorDe(det);
+  if (!hostSup && treballador) hostSup = new URL(det.url).hostname;
+  const lloc = MG.lloc(hostSup);
+  if (det.type === "main_frame" && lloc && det.tabId >= 0) estatPestanya(det.tabId, lloc);
+  if (!lloc || confiatHost(hostSup) || confiatHost(new URL(det.url).hostname)) return {};
+  // Un sistema contra el frau o de verificació d'identitat: aquest web, sense disfressa.
+  if (MG.esAntifrau(new URL(det.url).hostname)) {
+    marcaReal(lloc, det.tabId, true);
+    return {};
+  }
   const d = disfressaDe(lloc);
   const f = cfg.falseja;
-  const hs = det.requestHeaders;
+  if (treballador) injectaTreballador(det.requestId, MG.codiTreballador(d, f));
   for (const h of hs) {
     const n = h.name.toLowerCase();
     if (n === "user-agent" && f.navegador) h.value = d.ua;
@@ -244,6 +330,8 @@ async function reescriuSetCookie(linia, ctx) {
   const dom = attrs.map((a) => /^\s*domain\s*=\s*\.?(.+)$/i.exec(a)).find(Boolean);
   const domini = dom ? dom[1].trim().toLowerCase() : ctx.host;
 
+  // En un banc o un govern: les seves galetes de funcionament, tal qual.
+  if (ctx.real && !ctx.tercer && !MG.esSeguiment(nom)) return linia;
   if (!MG.esSeguiment(nom)) {
     // De funcionament: es queda, però només fins que tanquis la pestanya.
     if (cfg.protegides.has(`${domini}|${nom}`)) return linia;
@@ -262,15 +350,48 @@ async function reescriuSetCookie(linia, ctx) {
   return [`${nom}=${fals}`, ...sense].join(";");
 }
 
+// L'organització del certificat del web («O=Banco Bilbao Vizcaya Argentaria S.A.»).
+async function organitzacio(det) {
+  const prova = (await browser.storage.local.get("provaOrganitzacio")).provaOrganitzacio;   // només per a les proves
+  if (prova && prova[MG.llocDeUrl(det.url)]) return prova[MG.llocDeUrl(det.url)];
+  try {
+    const si = await browser.webRequest.getSecurityInfo(det.requestId, {});
+    const subj = si && si.certificates && si.certificates[0] ? si.certificates[0].subject : "";
+    const m = /(?:^|,)\s*O=(?:"([^"]+)"|([^,]+))/.exec(subj);
+    return m ? (m[1] || m[2]).trim() : "";
+  } catch (e) { return ""; }
+}
+
 async function rebutCapcaleres(det) {
-  if (!cfg.actiu || !cfg.falseja.galetes || det.tabId < 0) return {};
-  const llocSup = llocSuperiorDe(det);
-  if (det.type === "main_frame" && llocSup) estatPestanya(det.tabId, llocSup);
+  if (!cfg.actiu) return {};
+  const hostSup = hostSuperiorDe(det);
+  const llocSup = MG.lloc(hostSup);
+  if (det.type === "main_frame" && llocSup && det.tabId >= 0) estatPestanya(det.tabId, llocSup);
   let host;
   try { host = new URL(det.url).hostname; } catch (e) { return {}; }
   const llocReq = MG.lloc(host);
-  if (!llocSup || confiat(llocSup) || confiat(llocReq)) return {};
-  const ctx = { host, llocReq, llocSup, tercer: llocReq !== llocSup, tabId: det.tabId, url: det.url };
+  if (!llocSup || deConfianca(llocSup) || deConfianca(llocReq)) return {};
+  const real = esReal(hostSup);
+  // Les galetes d'un banc, d'un pagament o d'un sistema contra el frau no es toquen mai.
+  if (llocReq !== llocSup && (MG.esProtegitFrau(host) || cfg.realAuto.includes(llocReq))) return {};
+  // Bancs i governs de tot el món: si el certificat és d'un banc o d'una administració,
+  // el web passa a anar sense disfressa abans que el document comenci a carregar.
+  if (det.type === "main_frame" && !real) {
+    const org = await organitzacio(det);
+    if (org && MG.esOrganitzacioReal(org)) {
+      await marcaReal(llocSup, det.tabId, false);
+      // Aquesta petició ja ha sortit disfressada (i el Firefox treu navigator.userAgent de la
+      // capçalera): la parem i la tornem a demanar, ara sense disfressa. Només si és GET.
+      // (Una redirecció a la mateixa adreça, el Firefox no la fa.)
+      if (det.method === "GET" && det.tabId >= 0) {
+        setTimeout(() => browser.tabs.update(det.tabId, { url: det.url }), 0);
+        return { cancel: true };
+      }
+      return {};
+    }
+  }
+  if (!cfg.falseja.galetes) return {};
+  const ctx = { host, llocReq, llocSup, real, tercer: llocReq !== llocSup, tabId: det.tabId, url: det.url };
   let canviat = false;
   for (const h of det.responseHeaders) {
     if (h.name.toLowerCase() !== "set-cookie") continue;
@@ -355,13 +476,7 @@ browser.runtime.onMessage.addListener(async (m, sender) => {
   }
   if (m.tipus === "identitat" && sender.tab) {
     // Una pàgina amb contrasenya o targeta: aquest web, a partir d'ara, sense disfressa.
-    if (m.lloc && !confiat(m.lloc)) {
-      cfg.realAuto.push(m.lloc);
-      await browser.storage.local.set({ realAuto: cfg.realAuto });
-      disfresses.delete(m.lloc);
-      await registra();
-      browser.tabs.reload(sender.tab.id);
-    }
+    await marcaReal(m.lloc, sender.tab.id, true);
     return;
   }
   if (m.tipus === "estat") {
@@ -427,7 +542,7 @@ async function primeraVegada() {
   try { totes = totes.concat(await browser.cookies.getAll({})); } catch (e) { /* res */ }
   try { totes = totes.concat(await browser.cookies.getAll({ partitionKey: {} })); } catch (e) { /* res */ }
   for (const c of totes) {
-    if (MG.esSeguiment(c.name) && !confiat(MG.lloc(c.domain))) {
+    if (MG.esSeguiment(c.name) && !deConfianca(MG.lloc(c.domain)) && !MG.esProtegitFrau(c.domain.replace(/^\./, ""))) {
       const det = { url: (c.secure ? "https://" : "http://") + c.domain.replace(/^\./, "") + c.path, name: c.name, storeId: c.storeId };
       if (c.partitionKey) det.partitionKey = c.partitionKey;
       if (c.firstPartyDomain) det.firstPartyDomain = c.firstPartyDomain;
@@ -444,7 +559,7 @@ async function primeraVegada() {
 async function neteja() {
   const llocs = new Set();
   try { for (const c of await browser.cookies.getAll({})) llocs.add(MG.lloc(c.domain)); } catch (e) { /* res */ }
-  for (const l of llocs) if (!confiat(l) && !obert(l)) await menja(l, {});
+  for (const l of llocs) if (!deConfianca(l) && !obert(l)) await menja(l, {});
 }
 
 async function arrenca(perInstallar) {

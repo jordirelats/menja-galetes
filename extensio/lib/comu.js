@@ -82,13 +82,66 @@ MG.SEMPRE_REAL = [
   "selfbank.es", "renta4.com", "caixaontinyent.es", "caixapopular.es", "arquia.com", "bancomediolanum.es",
   // Administració
   "gob.es", "gencat.cat", "aoc.cat", "cat365.cat", "seg-social.es", "fnmt.es", "dnielectronico.es",
-  "policia.es", "guardiacivil.es", "boe.es", "europa.eu",
+  "policia.es", "guardiacivil.es", "boe.es", "europa.eu", "aeat.es", "sepe.es", "dgt.es", "060.es", "diba.cat",
+  "gva.es", "euskadi.eus", "navarra.es", "aragon.es", "jcyl.es", "carm.es", "caib.es", "comunidad.madrid",
+  "castillalamancha.es", "juntaex.es", "asturias.es", "cantabria.es", "larioja.org", "gobiernodecanarias.org",
+  // Governs que no ho diuen al nom del web
+  "canada.ca", "bund.de", "elster.de", "arbeitsagentur.de", "service-public.fr", "belgium.be", "skatteverket.se",
+  "forsakringskassan.se", "nav.no", "skatteetaten.no", "skat.dk", "virk.dk", "vero.fi", "kela.fi", "eesti.ee",
+  "inps.it", "agenziaentrate.it",
 ];
 
-MG.esSempreReal = function (lloc) {
-  if (!lloc) return false;
-  return MG.SEMPRE_REAL.some((s) => lloc === s || lloc.endsWith("." + s));
+// Bancs i governs de tot el món, pel nom del web. Es pot passar el nom sencer (host) o
+// el lloc: les paraules es miren a totes les parts del nom.
+MG.GOVERN_SUFIXOS = [
+  /(^|\.)(gov|mil|int)$/,                                                   // irs.gov, nato.int
+  /(^|\.)(gov|gob|gouv|govt|gv|gub|go|mil|admin|govern|gouv|gc)\.[a-z]{2}$/,  // gov.uk, gob.mx, gouv.fr, go.jp, admin.ch, gc.ca
+];
+MG.GOVERN_PARAULES = /^(gov|gob|gouv|govt|govern|governo|gobierno|gouvernement|government|regierung|police|policia|polizei|hacienda|tributaria|ajuntament.*|ayuntamiento.*|concello.*|udala.*|diputaci.*|generalitat.*|xunta.*|juntade.*|cabildo.*|ministr.*|bundesregierung|bundesfinanzministerium|rijksoverheid|overheid|regjeringen|regeringen|valtioneuvosto|suomi|borger|seg-social|sede)$/;
+MG.BANC_TROSSOS = /(bank|banc|banque|caixa|kasse|kutxa|raiffeisen|creditunion|credit-union)/;
+MG.BANC_MARQUES = [
+  "caja", "nordea", "swedbank", "danske", "rabobank", "abnamro", "hsbc", "barclays", "lloyds", "natwest",
+  "santander", "bbva", "wellsfargo", "citi", "capitalone", "scotiabank", "westpac", "bradesco", "nubank",
+  "mercadopago", "icici", "hdfc", "onlinesbi", "mufg", "smbc", "mizuho", "bnpparibas", "societegenerale",
+  "unicredit", "intesasanpaolo", "commerzbank", "comdirect", "belfius", "millennium", "novobanco", "creditmutuel",
+  "credit-agricole", "labanquepostale", "postfinance", "chase", "usbank", "pnc", "tdbank", "rbcroyalbank", "cibc",
+  "itau", "ocbc", "kotak", "axisbank", "ubs", "monzo", "starlingbank", "bunq", "venmo", "zellepay",
+];
+MG.BANC_EXACTES = new Set(["td.com", "bmo.com", "rbc.com", "anz.com", "anz.com.au", "nab.com.au", "dbs.com",
+  "dbs.com.sg", "uob.com.sg", "ing.es", "ing.de", "ing.nl", "ing.com", "ing.be", "ing.fr", "ing.it", "kbc.be",
+  "kbc.com", "lcl.fr", "cgd.pt", "mps.it", "bper.it", "dkb.de", "cash.app"]);
+
+MG.esSempreReal = function (nom) {
+  if (!nom) return false;
+  nom = String(nom).toLowerCase();
+  const lloc = MG.lloc(nom);
+  if (MG.SEMPRE_REAL.some((s) => lloc === s || lloc.endsWith("." + s))) return true;
+  if (MG.BANC_EXACTES.has(lloc)) return true;
+  if (MG.GOVERN_SUFIXOS.some((r) => r.test(lloc))) return true;
+  if (nom.split(/[.-]/).some((t) => MG.GOVERN_PARAULES.test(t))) return true;
+  const marca = lloc.split(".")[0];
+  if (MG.BANC_TROSSOS.test(marca)) return true;
+  return MG.BANC_MARQUES.some((m) => marca === m || marca.startsWith(m));
 };
+
+// Bancs, finances i governs pel nom de l'organització del certificat del web.
+MG.ORGANITZACIO_REAL = /\b(bank|banco|banca|banque|bancaire|caixa|caja|sparkasse|kasse|kutxa|credit union|crédit|credito|crédito|kredit|savings|building society|financial|finance|financière|securities|investment|trust company|payments?|pagos|pagaments|government|gobierno|govern|gouvernement|governo|regierung|ministry|ministerio|ministère|ministero|ministeri|minister|department of|state of|city of|county of|council|ajuntament|ayuntamiento|generalitat|junta de|diputaci|agencia|agència|agence|administración|administració|administration|hacienda|tributaria|tributària|seguridad social|seguretat social|police|policía|policia|polizei|république|republic|bundesamt|kommune|gemeente|municipality|municipal|federal|treasury|tesoro|tresor)\b/i;
+MG.esOrganitzacioReal = (org) => MG.ORGANITZACIO_REAL.test(String(org || ""));
+
+// Sistemes contra el frau i de verificació d'identitat. Si una pàgina en carrega un, el
+// web ha de veure el navegador de debò.
+MG.ANTIFRAU = [
+  "online-metrix.net", "threatmetrix.com", "iesnare.com", "iovation.com", "biocatch.com", "nudatasecurity.com",
+  "kount.net", "kaxsdc.com", "forter.com", "riskified.com", "signifyd.com", "seon.io", "sardine.ai",
+  "accertify.com", "feedzai.com", "sift.com", "siftscience.com", "fpjs.io", "fpcdn.io", "fpapi.io",
+  "incognia.com", "socure.com", "jumio.com", "onfido.com", "veriff.com", "veriff.me", "sumsub.com",
+  "idnow.de", "idnow.io", "withpersona.com", "arkoselabs.com", "funcaptcha.com", "trulioo.com", "mitek.com",
+];
+MG.esAntifrau = (host) => { const l = MG.lloc(host); return MG.ANTIFRAU.some((s) => l === s || l.endsWith("." + s)); };
+
+// Galetes que no es toquen mai, ni als bancs: les dels bancs, pagaments, governs i sistemes
+// contra el frau (encara que vinguin d'un altre web).
+MG.esProtegitFrau = (host) => MG.esSempreReal(host) || MG.esAntifrau(host);
 
 MG.esConfiat = function (lloc, llista) {
   if (!lloc) return false;
@@ -343,4 +396,276 @@ MG.disfressa = function (cfg, lloc, real) {
     ip, lat, lon, soroll,
     nom: `Un ${so} de ${ciutat[0]}`,
   };
+};
+
+/* ---- Peces que van també dins dels treballadors (workers) ----------------------------
+ * Aquestes funcions no poden fer servir res de fora seu (ni MG): el fons i la pàgina
+ * en copien el text dins del codi que s'afegeix al començament de cada treballador.
+ */
+
+// Soroll a les dades d'una imatge. Sempre el mateix per a la mateixa llavor, i es pot
+// aplicar dues vegades sense que canviï res (posa un bit, no el gira).
+MG.sorolla = function (dades, llargada, llavor) {
+  let h = 2166136261;
+  const s = String(llavor) + "|" + llargada;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+  let a = h >>> 0;
+  const r = () => {
+    a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  if (!llargada) return;
+  const canvis = Math.min(24, Math.max(6, llargada >> 12));
+  for (let i = 0; i < canvis; i++) {
+    const k = Math.floor(r() * (llargada / 4)) * 4 + Math.floor(r() * 3);
+    const bit = r() < 0.5 ? 0 : 1;
+    dades[k] = (dades[k] & 0xFE) | bit;
+  }
+};
+
+/*
+ * L'hora i l'idioma de la disfressa, complets: Date (hores, dates, textos, constructor
+ * i Date.parse), Intl (idioma i zona per defecte), toLocale*, localeCompare i Temporal.
+ *   G: l'objecte global (la finestra vista amb wrappedJSObject, o `self` en un treballador)
+ *   eina.fn / eina.ganxo: exportFunction i cloneInto(…, {cloneFunctions}) a les finestres;
+ *     la identitat als treballadors
+ *   eina.Date / eina.DTF: el Date i l'Intl.DateTimeFormat originals, per calcular
+ *   eina.zonaReal: la zona horària de debò
+ */
+MG.zonaIdioma = function (G, d, f, eina) {
+  "use strict";
+  if (!f.idioma) return;
+  const fn = eina.fn, ganxo = eina.ganxo, DC = eina.Date, DTFo = eina.DTF, zonaReal = eina.zonaReal;
+  const OD = G.Date, ODP = OD.prototype;
+  const canviaZona = d.zona !== zonaReal;
+
+  // Minuts de diferència amb UTC (el mateix signe que getTimezoneOffset) en un instant.
+  const fmts = {};
+  const fmt = (z) => fmts[z] || (fmts[z] = new DTFo("en-US", {
+    timeZone: z, hourCycle: "h23", era: "short", year: "numeric", month: "numeric",
+    day: "numeric", hour: "numeric", minute: "numeric", second: "numeric",
+  }));
+  const desfase = (t, z) => {
+    if (!(t === t) || !isFinite(t)) return NaN;
+    const v = {};
+    for (const p of fmt(z).formatToParts(t)) v[p.type] = p.value;
+    let y = +v.year;
+    if (/^B/.test(v.era || "")) y = 1 - y;
+    const x = new DC(0);
+    x.setUTCFullYear(y, +v.month - 1, +v.day);
+    x.setUTCHours(+v.hour % 24, +v.minute, +v.second, 0);
+    const base = t - (((t % 1000) + 1000) % 1000);
+    return Math.round((base - x.getTime()) / 60000);
+  };
+  const aUTC = (L) => { let t = L + desfase(L, d.zona) * 60000; t = L + desfase(t, d.zona) * 60000; return t; };
+  const local = (t) => new DC(t - desfase(t, d.zona) * 60000);
+
+  // Si un altre script de l'extensió ja hi ha passat, no ho tornem a fer.
+  // (Es mira el nom de la zona: dues zones poden tenir la mateixa diferència amb UTC.)
+  if (canviaZona) { try { if (new G.Intl.DateTimeFormat().resolvedOptions().timeZone === d.zona) return; } catch (e) { /* res */ } }
+
+  /* Idioma per defecte a Intl i a toLocale* */
+  const paginaArray = (llista) => { const a = new G.Array(); for (const v of llista) a.push(v); return a; };
+  const idiomes = paginaArray(d.idiomes);
+  const ambZona = (o) => {
+    if (!canviaZona) return o;
+    if (o === undefined || o === null) { const n = new G.Object(); n.timeZone = d.zona; return n; }
+    let tz;
+    try { tz = o.timeZone; } catch (e) { /* res */ }
+    if (tz !== undefined) return o;
+    const n = G.Object.assign(new G.Object(), o);
+    n.timeZone = d.zona;
+    return n;
+  };
+  const ajusta = (args, zona) => {
+    const a = [];
+    for (let i = 0; i < args.length; i++) a.push(args[i]);
+    if (a[0] === undefined) a[0] = idiomes;
+    if (zona) a[1] = ambZona(a[1]);
+    return paginaArray(a);
+  };
+  for (const nom of ["DateTimeFormat", "NumberFormat", "Collator", "PluralRules", "RelativeTimeFormat",
+    "ListFormat", "DisplayNames", "Segmenter", "DurationFormat"]) {
+    const C = G.Intl && G.Intl[nom];
+    if (!C) continue;
+    const zona = nom === "DateTimeFormat";
+    try {
+      const P = new G.Proxy(C, ganxo({
+        construct: (t, args, nt) => G.Reflect.construct(t, ajusta(args, zona), nt),
+        apply: (t, th, args) => G.Reflect.apply(t, th, ajusta(args, zona)),
+      }));
+      G.Intl[nom] = P;
+      C.prototype.constructor = P;
+    } catch (e) { /* res */ }
+  }
+  const posa = (proto, nom, fer) => {
+    try { const o = proto && proto[nom]; if (typeof o === "function") proto[nom] = fn(fer(o)); } catch (e) { /* res */ }
+  };
+  for (const nom of ["toLocaleString", "toLocaleDateString", "toLocaleTimeString"]) {
+    posa(ODP, nom, (o) => function (loc, opc) { return o.call(this, loc === undefined ? idiomes : loc, ambZona(opc)); });
+  }
+  posa(G.Number.prototype, "toLocaleString", (o) => function (loc, opc) { return o.call(this, loc === undefined ? idiomes : loc, opc); });
+  if (G.BigInt) posa(G.BigInt.prototype, "toLocaleString", (o) => function (loc, opc) { return o.call(this, loc === undefined ? idiomes : loc, opc); });
+  posa(G.String.prototype, "localeCompare", (o) => function (que, loc, opc) { return o.call(this, que, loc === undefined ? idiomes : loc, opc); });
+
+  if (!canviaZona) return;
+
+  /* La zona horària: Date sencer */
+  const getTime = ODP.getTime, setTime = ODP.setTime, parseOriginal = OD.parse;
+  const GETS = { getFullYear: "getUTCFullYear", getMonth: "getUTCMonth", getDate: "getUTCDate", getDay: "getUTCDay",
+    getHours: "getUTCHours", getMinutes: "getUTCMinutes", getSeconds: "getUTCSeconds", getMilliseconds: "getUTCMilliseconds" };
+  for (const k of Object.keys(GETS)) {
+    const u = GETS[k];
+    ODP[k] = fn(function () { const t = getTime.call(this); return t === t ? local(t)[u]() : NaN; });
+  }
+  ODP.getYear = fn(function () { const t = getTime.call(this); return t === t ? local(t).getUTCFullYear() - 1900 : NaN; });
+  ODP.getTimezoneOffset = fn(function () { const t = getTime.call(this); return t === t ? desfase(t, d.zona) : NaN; });
+  const SETS = { setFullYear: "setUTCFullYear", setMonth: "setUTCMonth", setDate: "setUTCDate", setHours: "setUTCHours",
+    setMinutes: "setUTCMinutes", setSeconds: "setUTCSeconds", setMilliseconds: "setUTCMilliseconds" };
+  for (const k of Object.keys(SETS)) {
+    const u = SETS[k];
+    ODP[k] = fn(function () {
+      let t = getTime.call(this);
+      if (!(t === t)) { if (k !== "setFullYear") return NaN; t = aUTC(0); }
+      const x = local(t);
+      const a = [];
+      for (let i = 0; i < arguments.length; i++) a.push(Number(arguments[i]));
+      DC.prototype[u].apply(x, a);
+      return setTime.call(this, aUTC(x.getTime()));
+    });
+  }
+  const setFullYear = ODP.setFullYear;
+  ODP.setYear = fn(function (y) { y = Number(y); if (y >= 0 && y <= 99) y += 1900; return setFullYear.call(this, y); });
+
+  const DIES = "Sun Mon Tue Wed Thu Fri Sat".split(" ");
+  const MESOS = "Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec".split(" ");
+  const dos = (n) => String(n).padStart(2, "0");
+  const any = (y) => (y < 0 ? "-" + String(-y).padStart(6, "0") : String(y).padStart(4, "0"));
+  let fmtNom = null;
+  const nomZona = (t) => {
+    try {
+      fmtNom = fmtNom || new DTFo(d.idiomes[0], { timeZone: d.zona, timeZoneName: "long" });
+      const p = fmtNom.formatToParts(t).find((x) => x.type === "timeZoneName");
+      return p ? p.value : d.zona;
+    } catch (e) { return d.zona; }
+  };
+  const gmt = (off) => { const m = -off, a = Math.abs(m); return "GMT" + (m >= 0 ? "+" : "-") + dos(Math.floor(a / 60)) + dos(a % 60); };
+  const txtData = (x) => `${DIES[x.getUTCDay()]} ${MESOS[x.getUTCMonth()]} ${dos(x.getUTCDate())} ${any(x.getUTCFullYear())}`;
+  const txtHora = (t, x) => `${dos(x.getUTCHours())}:${dos(x.getUTCMinutes())}:${dos(x.getUTCSeconds())} ${gmt(desfase(t, d.zona))} (${nomZona(t)})`;
+  const txt = (t) => { if (!(t === t)) return "Invalid Date"; const x = local(t); return `${txtData(x)} ${txtHora(t, x)}`; };
+  ODP.toString = fn(function () { return txt(getTime.call(this)); });
+  ODP.toDateString = fn(function () { const t = getTime.call(this); return t === t ? txtData(local(t)) : "Invalid Date"; });
+  ODP.toTimeString = fn(function () { const t = getTime.call(this); return t === t ? txtHora(t, local(t)) : "Invalid Date"; });
+
+  // Els textos sense zona («2024-01-15T10:30», «Jan 15 2024 10:30») són hora local.
+  const teZona = /(?:Z|[+-]\d{2}:?\d{2}|\bGMT\b|\bUTC?\b|\b[ECMP][SD]T\b)\s*(?:\(.*\))?\s*$/i;
+  const nomesData = /^\s*[+-]?\d{4,6}(?:-\d{2}(?:-\d{2})?)?\s*$/;
+  const llegeix = (s) => {
+    const t = parseOriginal.call(OD, s);
+    if (!(t === t) || teZona.test(s) || nomesData.test(s)) return t;
+    return aUTC(t - desfase(t, zonaReal) * 60000);
+  };
+  OD.parse = fn(function (s) { return llegeix(String(s)); });
+  try {
+    const DateFals = new G.Proxy(OD, ganxo({
+      construct: (t, args, nt) => {
+        const n = args.length;
+        let ms = null;
+        if (n >= 2) {
+          const v = [];
+          for (let i = 0; i < 7; i++) v.push(i < n ? Number(args[i]) : (i === 2 ? 1 : 0));
+          let y = v[0];
+          if (Math.trunc(y) >= 0 && Math.trunc(y) <= 99) y = 1900 + Math.trunc(y);
+          const x = new DC(0);
+          x.setUTCFullYear(y, v[1], v[2]);
+          x.setUTCHours(v[3], v[4], v[5], v[6]);
+          ms = aUTC(x.getTime());
+        } else if (n === 1 && typeof args[0] === "string") {
+          ms = llegeix(args[0]);
+        }
+        if (ms === null) return G.Reflect.construct(t, args, nt);
+        return G.Reflect.construct(t, paginaArray([ms]), nt);
+      },
+      apply: () => txt(DC.now()),
+    }));
+    G.Date = DateFals;
+    ODP.constructor = DateFals;
+  } catch (e) { /* res */ }
+
+  // Temporal (Firefox 139 i més nous)
+  try {
+    const TN = G.Temporal && G.Temporal.Now;
+    if (TN) {
+      TN.timeZoneId = fn(function () { return d.zona; });
+      for (const k of ["zonedDateTimeISO", "plainDateTimeISO", "plainDateISO", "plainTimeISO"]) {
+        const o = TN[k];
+        if (typeof o === "function") TN[k] = fn(function (tz) { return o.call(this, tz === undefined ? d.zona : tz); });
+      }
+    }
+  } catch (e) { /* res */ }
+};
+
+// La resta de la disfressa dins d'un treballador: navigator, WebGL i OffscreenCanvas.
+MG.restaTreballador = function (G, d, f, sorolla) {
+  "use strict";
+  const def = (o, p, v) => {
+    try { Object.defineProperty(o, p, { get: function () { return v; }, configurable: true, enumerable: true }); } catch (e) { /* res */ }
+  };
+  const N = G.WorkerNavigator && G.WorkerNavigator.prototype;
+  if (N) {
+    if (f.navegador) { def(N, "userAgent", d.ua); def(N, "platform", d.platform); def(N, "appVersion", d.appVersion); }
+    if (f.idioma) { def(N, "language", d.idiomes[0]); def(N, "languages", Object.freeze(d.idiomes.slice())); }
+    if (f.pantalla) def(N, "hardwareConcurrency", d.nuclis);
+  }
+  if (f.pantalla) {
+    for (const nom of ["WebGLRenderingContext", "WebGL2RenderingContext"]) {
+      const P = G[nom] && G[nom].prototype;
+      if (!P) continue;
+      const o = P.getParameter;
+      P.getParameter = function (p) {
+        if (p === 0x9245) return d.gpu.vendor;
+        if (p === 0x9246) return d.gpu.renderer;
+        return o.call(this, p);
+      };
+    }
+  }
+  if (f.empremta && G.OffscreenCanvasRenderingContext2D) {
+    const C2 = G.OffscreenCanvasRenderingContext2D.prototype;
+    const gid = C2.getImageData;
+    C2.getImageData = function () {
+      const r = gid.apply(this, arguments);
+      try { sorolla(r.data, r.data.length, d.soroll + "|img"); } catch (e) { /* res */ }
+      return r;
+    };
+    const OC = G.OffscreenCanvas.prototype;
+    const ctb = OC.convertToBlob;
+    if (ctb) {
+      OC.convertToBlob = function () {
+        try {
+          const c = new G.OffscreenCanvas(this.width, this.height);
+          const x = c.getContext("2d");
+          x.drawImage(this, 0, 0);
+          const im = gid.call(x, 0, 0, this.width, this.height);
+          sorolla(im.data, im.data.length, d.soroll + "|img");
+          x.putImageData(im, 0, 0);
+          return ctb.apply(c, arguments);
+        } catch (e) { return ctb.apply(this, arguments); }
+      };
+    }
+  }
+};
+
+// El codi que va al començament de cada treballador: només ASCII, perquè serveixi
+// sigui quina sigui la codificació de l'script.
+MG.codiTreballador = function (d, f) {
+  const json = (o) => JSON.stringify(o).replace(/[\u007f-￿]/g, (c) => "\\u" + c.charCodeAt(0).toString(16).padStart(4, "0"));
+  const ascii = (s) => s.replace(/[\u007f-￿]/g, (c) => "\\u" + c.charCodeAt(0).toString(16).padStart(4, "0"));
+  return ascii("(function(){try{var d=" + json(d) + ",f=" + json(f) + ",id=function(x){return x};" +
+    "var zonaReal=Intl.DateTimeFormat().resolvedOptions().timeZone;" +
+    "var sorolla=" + MG.sorolla.toString() + ";" +
+    "(" + MG.zonaIdioma.toString() + ")(self,d,f,{fn:id,ganxo:id,Date:Date,DTF:Intl.DateTimeFormat,zonaReal:zonaReal});" +
+    "(" + MG.restaTreballador.toString() + ")(self,d,f,sorolla);" +
+    "}catch(e){}})();\n");
 };

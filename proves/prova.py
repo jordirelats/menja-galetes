@@ -79,8 +79,10 @@ def prova_llista_fixa():
     """Els bancs, els pagaments i l'Administració: sempre amb la identitat real."""
     codi = (EXT / "lib" / "comu.js").read_text() + """
     ;const casos = {"sede.agenciatributaria.gob.es": true, "www.caixabank.es": true, "checkout.stripe.com": true,
-      "www.paypal.com": true, "web.gencat.cat": true, "www.diari-exemple.cat": false, "www.lavanguardia.com": false};
-    for (const [h, esperat] of Object.entries(casos)) console.log(h, MG.esSempreReal(MG.lloc(h)) === esperat ? "OK" : "FALLA");"""
+      "www.paypal.com": true, "web.gencat.cat": true, "www.diari-exemple.cat": false, "www.lavanguardia.com": false,
+      "www.bankofamerica.com": true, "www.irs.gov": true, "www.gov.uk": true, "www.impots.gouv.fr": true, "www.sparkasse.de": true,
+      "www.e-tax.nta.go.jp": true, "ajuntament.barcelona.cat": true, "www.canada.ca": true, "govee.com": false, "www.booking.com": false};
+    for (const [h, esperat] of Object.entries(casos)) console.log(h, MG.esSempreReal(h) === esperat ? "OK" : "FALLA");"""
     sortida = subprocess.run(["node", "-e", codi], capture_output=True, text=True).stdout.split("\n")
     for l in filter(None, sortida):
         host, r = l.rsplit(" ", 1)
@@ -104,6 +106,9 @@ def main():
         'user_pref("browser.ipProtection.enabled", false);',
         'user_pref("intl.locale.requested", "ca");',
         'user_pref("intl.accept_languages", "ca,es,en");',
+        # Noms de prova que van al servidor local (no surt res a internet)
+        'user_pref("network.dns.localDomains", "diari.test,www.bancprova.test,www.prova.gob.es,botiga.test,'
+        'h.online-metrix.net,empresa.test");',
     ]))
     env = dict(os.environ, MOZ_HEADLESS="1")
     ff = subprocess.Popen(["firefox", "--headless", "--marionette", "-remote-allow-system-access", "--no-remote", "--profile", str(perfil)],
@@ -227,6 +232,49 @@ def main():
         comprova("la disfressa ara és d'Alemanya", (info3.get("languages") or [""])[0].startswith("de"), info3.get("languages"))
         comprova("i la zona horària, Europe/Berlin", info3.get("zona") == "Europe/Berlin", info3.get("zona"))
 
+        # ---- 7b. L'hora del Japó, els marcs i els treballadors ----
+        print("\n7b. L'hora del Japó, els marcs amagats i els treballadors")
+        m.ves(f"{WEB}/pais?posa=JP")
+        print("   ", missatge(m, uuid, {"tipus": "comprovaPais"}))
+        m.ves(f"{WEB}/zona")
+        z = info_pagina(m)
+        print("   ", json.dumps(z, ensure_ascii=False))
+        comprova("getTimezoneOffset del Japó (-540)", z.get("offset") == -540, z.get("offset"))
+        comprova("new Date(…10:30).getHours() torna 10", z.get("hores") == 10, z.get("hores"))
+        comprova("i en UTC són la 1", z.get("utc") == 1, z.get("utc"))
+        comprova("Date.parse sense zona, com a hora del Japó", z.get("parse") is True)
+        comprova("el text de la data diu GMT+0900", "GMT+0900" in str(z.get("text")), z.get("text"))
+        comprova("Intl: Asia/Tokyo", z.get("intl") == "Asia/Tokyo", z.get("intl"))
+        comprova("Intl: idioma japonès", str(z.get("locale")).startswith("ja"), z.get("locale"))
+        comprova("toLocaleTimeString, a l'hora del Japó", z.get("local") == "10:30:00", z.get("local"))
+        comprova("Temporal: Asia/Tokyo", z.get("temporal") in ("Asia/Tokyo", "sense Temporal"), z.get("temporal"))
+        comprova("Date() com a funció, GMT+0900", z.get("dateFn") is True)
+        comprova("instanceof Date continua anant bé", z.get("instanceof") is True)
+        comprova("setHours a l'hora del Japó", z.get("setHours") is True)
+
+        m.ves(f"{WEB}/marcs")
+        mc = info_pagina(m)
+        print("   ", json.dumps(mc, ensure_ascii=False)[:400])
+        comprova("marc nou: el mateix navegador falsejat", mc.get("marc") == mc.get("top") and "Linux" not in str(mc.get("marc")))
+        comprova("window[0]: plataforma falsa", mc.get("index") in ("Win32", "MacIntel"), mc.get("index"))
+        comprova("marc nou: zona del Japó", mc.get("zonaMarc") == "Asia/Tokyo", mc.get("zonaMarc"))
+        comprova("marc posat amb innerHTML, també", mc.get("innerHTML") == mc.get("top"))
+        comprova("galeta posada des d'un marc, menjada", "GA1.1.444444444" not in str(mc.get("cookieMarc")), mc.get("cookieMarc"))
+
+        m.ves(f"{WEB}/treballadors")
+        tr = {}
+        for _ in range(20):
+            time.sleep(0.3)
+            tr = info_pagina(m)
+            if tr.get("fitxer") and tr.get("blob") and tr.get("compartit"):
+                break
+        print("   ", json.dumps(tr, ensure_ascii=False)[:600])
+        for qui in ("fitxer", "blob", "compartit"):
+            t = tr.get(qui) or {}
+            comprova(f"treballador ({qui}): navegador falsejat", isinstance(t, dict) and t.get("ua") == tr.get("top"), t.get("ua") if isinstance(t, dict) else t)
+            comprova(f"treballador ({qui}): zona i idioma del Japó", isinstance(t, dict) and t.get("zona") == "Asia/Tokyo"
+                     and t.get("offset") == -540 and str(t.get("idioma")).startswith("ja"))
+
         # ---- 8. Webs de confiança ----
         print("\n8. Web de confiança")
         print("   ", missatge(m, uuid, {"tipus": "confia", "lloc": "localhost", "si": True, "tabId": -1}))
@@ -249,6 +297,40 @@ def main():
                 break
         comprova("s'ha tornat a carregar sola", info5.get("carrega", 0) >= 2, f"càrregues: {info5.get('carrega')}")
         comprova("i ara amb el navegador de debò", "Linux" in info5.get("userAgent", ""), info5.get("userAgent"))
+
+        # ---- 10. Bancs, governs i sistemes contra el frau de tot el món ----
+        print("\n10. Bancs i governs de tot el món")
+        def simple(url, recarrega=False):
+            m.ves(url)
+            inf = {}
+            for _ in range(25):
+                time.sleep(0.3)
+                inf = info_pagina(m)
+                if not recarrega or inf.get("carrega", 0) >= 2:
+                    break
+            return inf
+        a = simple("http://diari.test:8765/simple")
+        comprova("un diari qualsevol: disfressat", "Linux" not in a.get("userAgent", "Linux"), a.get("userAgent"))
+        b = simple("http://www.bancprova.test:8765/simple?marc=1")
+        time.sleep(1)
+        comprova("un banc pel nom: navegador de debò", "Linux" in b.get("userAgent", ""), b.get("userAgent"))
+        comprova("la galeta de sessió del banc, tal qual", "sessio=banc123" in b.get("cookie", ""), b.get("cookie"))
+        comprova("la _ga (de Google) al banc, menjada", "GA1.1.111111111" not in b.get("cookie", "x"), b.get("cookie"))
+        gs = galetes(m)
+        ide = [g for g in gs if g["name"] == "IDE" and "bancprova" in (g["partition"] or "")]
+        comprova("les galetes de tercers al banc, menjades", ide and ide[0]["value"] != "AHWqTUmREALREAL123",
+                 ide and f"{ide[0]['value']} · {ide[0]['partition']}")
+        c = simple("http://www.prova.gob.es:8765/simple")
+        comprova("un govern (.gob.es): navegador de debò", "Linux" in c.get("userAgent", ""), c.get("userAgent"))
+        simple("http://botiga.test:8765/antifrau")
+        time.sleep(1.5)                       # la pàgina es torna a carregar sola
+        e = info_pagina(m)
+        comprova("una botiga amb sistema contra el frau: navegador de debò", "Linux" in e.get("userAgent", ""), e.get("userAgent"))
+        m.ves(f"moz-extension://{uuid}/opcions/opcions.html")
+        m.js_async("const f = arguments[arguments.length-1]; (window.wrappedJSObject||window).browser.storage.local.set({provaOrganitzacio: {'empresa.test': 'Banco de Prova S.A.'}}).then(() => f('ok'))")
+        g = simple("http://empresa.test:8765/simple")
+        comprova("certificat d'un banc: navegador de debò ja a la primera", "Linux" in g.get("userAgent", "") and g.get("carrega") == 1,
+                 f"{g.get('userAgent')} · càrregues: {g.get('carrega')}")
     finally:
         try:
             ff.terminate()
