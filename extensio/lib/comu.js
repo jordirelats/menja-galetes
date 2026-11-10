@@ -143,6 +143,13 @@ MG.esAntifrau = (host) => { const l = MG.lloc(host); return MG.ANTIFRAU.some((s)
 // d'anuncis i de xarxes socials, i les campanyes.
 MG.PARAMS_SEGUIMENT = /^(fbclid|gclid|gbraid|wbraid|dclid|gclsrc|msclkid|yclid|twclid|ttclid|li_fat_id|igshid|igsh|epik|mc_eid|_hsenc|_hsmi|__hssc|__hstc|__hsfp|hsCtaTracking|mkt_tok|vero_id|oly_anon_id|oly_enc_id|rb_clickid|_openstat|s_cid|ef_id|scid|irclickid|wickedid|srsltid|utm_[a-z_]+)$/i;
 
+// La mateixa llista amb noms exactes (les regles del Chromium no admeten patrons).
+MG.PARAMS_LLISTA = ["fbclid", "gclid", "gbraid", "wbraid", "dclid", "gclsrc", "msclkid", "yclid", "twclid", "ttclid",
+  "li_fat_id", "igshid", "igsh", "epik", "mc_eid", "_hsenc", "_hsmi", "__hssc", "__hstc", "__hsfp", "hsCtaTracking",
+  "mkt_tok", "vero_id", "oly_anon_id", "oly_enc_id", "rb_clickid", "_openstat", "s_cid", "ef_id", "scid", "irclickid",
+  "wickedid", "srsltid", "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content", "utm_id", "utm_name",
+  "utm_cid", "utm_reader", "utm_social", "utm_brand", "utm_place", "utm_pubreferrer", "utm_swu", "utm_viz_id"];
+
 // Treu-los d'una adreça. Torna null si no n'hi havia cap.
 MG.netejaUrl = function (url) {
   let u;
@@ -351,7 +358,9 @@ MG.SISTEMES = {
   Windows: {
     nom: "Windows 11",
     ua: (v) => `Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:${v}.0) Gecko/20100101 Firefox/${v}.0`,
+    uaChrome: (v) => `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${v}.0.0.0 Safari/537.36`,
     platform: "Win32", oscpu: "Windows NT 10.0; Win64; x64", appVersion: "5.0 (Windows)",
+    uaDades: { platform: "Windows", versions: ["15.0.0", "19.0.0"], arquitectures: ["x86"] },
     pantalles: [[1920, 1080], [1366, 768], [1536, 864], [1600, 900], [1920, 1200], [2560, 1440], [3840, 2160]],
     barra: 48, dpr: [1, 1, 1.25, 1.5],
     gpu: [
@@ -360,16 +369,28 @@ MG.SISTEMES = {
       ["NVIDIA GTX 1650", "Google Inc. (NVIDIA)", "ANGLE (NVIDIA, NVIDIA GeForce GTX 1650 Direct3D11 vs_5_0 ps_5_0), or similar"],
       ["AMD Radeon RX 580", "Google Inc. (AMD)", "ANGLE (AMD, Radeon RX 580 Series Direct3D11 vs_5_0 ps_5_0), or similar"],
     ],
+    gpuChrome: [
+      ["Intel UHD 620", "Google Inc. (Intel)", "ANGLE (Intel, Intel(R) UHD Graphics 620 (0x00005917) Direct3D11 vs_5_0 ps_5_0, D3D11)"],
+      ["Intel Iris Xe", "Google Inc. (Intel)", "ANGLE (Intel, Intel(R) Iris(R) Xe Graphics (0x00009A49) Direct3D11 vs_5_0 ps_5_0, D3D11)"],
+      ["NVIDIA GTX 1650", "Google Inc. (NVIDIA)", "ANGLE (NVIDIA, NVIDIA GeForce GTX 1650 (0x00001F82) Direct3D11 vs_5_0 ps_5_0, D3D11)"],
+      ["AMD Radeon RX 580", "Google Inc. (AMD)", "ANGLE (AMD, Radeon RX 580 Series (0x000067DF) Direct3D11 vs_5_0 ps_5_0, D3D11)"],
+    ],
   },
   Mac: {
     nom: "macOS",
     ua: (v) => `Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:${v}.0) Gecko/20100101 Firefox/${v}.0`,
+    uaChrome: (v) => `Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${v}.0.0.0 Safari/537.36`,
     platform: "MacIntel", oscpu: "Intel Mac OS X 10.15", appVersion: "5.0 (Macintosh)",
+    uaDades: { platform: "macOS", versions: ["14.6.1", "15.3.0"], arquitectures: ["arm", "x86"] },
     pantalles: [[1440, 900], [1512, 982], [1680, 1050], [1728, 1117], [2560, 1440]],
     barra: 25, dpr: [2],
     gpu: [
       ["Apple M1", "Apple", "Apple M1, or similar"],
       ["Apple M2", "Apple", "Apple M2, or similar"],
+    ],
+    gpuChrome: [
+      ["Apple M1", "Google Inc. (Apple)", "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)"],
+      ["Apple M2", "Google Inc. (Apple)", "ANGLE (Apple, ANGLE Metal Renderer: Apple M2, Unspecified Version)"],
     ],
   },
 };
@@ -419,15 +440,26 @@ MG.disfressa = function (cfg, lloc, real) {
   const [w, h] = pantalles[Math.floor(iPantalla * pantalles.length)];
   const dpr = tria(S.dpr);
   const nuclis = tria([4, 8, 8, 12, 16]);
-  const gpu = tria(S.gpu);
+  const iGpu = Math.floor(r() * S.gpu.length);
   const ip = MG.ipDe([MG.BLOC_IP_FALSA], r);
   const lat = Math.round((ciutat[1] + (r() - 0.5) * 0.06) * 1e5) / 1e5;
   const lon = Math.round((ciutat[2] + (r() - 0.5) * 0.06) * 1e5) / 1e5;
   const soroll = Math.floor(r() * 2147483647);
+  // Al Vivaldi, el Chrome i el Brave, la disfressa és un Chrome; al Firefox, un Firefox.
+  const chrome = cfg.navegador === "chrome";
+  const gpu = (chrome ? S.gpuChrome : S.gpu)[iGpu];
+  const memoria = tria([4, 8, 8]);
+  const uaDades = {
+    platform: S.uaDades.platform, platformVersion: tria(S.uaDades.versions),
+    architecture: tria(S.uaDades.arquitectures), bitness: "64", model: "", mobile: false, wow64: false,
+  };
+  const ua = chrome ? S.uaChrome(v) : S.ua(v);
 
   return {
     codiPais, pais: p.nom, dePais: p.de, ciutat: ciutat[0], so, soNom: S.nom,
-    ua: S.ua(v), platform: S.platform, oscpu: S.oscpu, appVersion: S.appVersion,
+    navegador: chrome ? "chrome" : "firefox", navegadorNom: chrome ? "Chrome" : "Firefox",
+    ua, platform: S.platform, oscpu: chrome ? null : S.oscpu, appVersion: chrome ? ua.slice(8) : S.appVersion,
+    memoria: chrome ? memoria : null, uaDades: chrome ? uaDades : null,
     idiomes: p.idiomes.slice(), acceptLanguage: p.accept, zona: p.zona,
     pantalla: { w, h, aw: w, ah: h - S.barra, dpr },
     nuclis, gpu: { nom: gpu[0], vendor: gpu[1], renderer: gpu[2] },
@@ -656,6 +688,7 @@ MG.restaTreballador = function (G, d, f, sorolla) {
     if (f.navegador) { def(N, "userAgent", d.ua); def(N, "platform", d.platform); def(N, "appVersion", d.appVersion); }
     if (f.idioma) { def(N, "language", d.idiomes[0]); def(N, "languages", Object.freeze(d.idiomes.slice())); }
     if (f.pantalla) def(N, "hardwareConcurrency", d.nuclis);
+    if (f.pantalla && d.memoria && "deviceMemory" in N) def(N, "deviceMemory", d.memoria);
   }
   if (f.pantalla) {
     for (const nom of ["WebGLRenderingContext", "WebGL2RenderingContext"]) {
@@ -695,15 +728,46 @@ MG.restaTreballador = function (G, d, f, sorolla) {
   }
 };
 
+// navigator.userAgentData (només als navegadors Chromium): la plataforma de la disfressa.
+// Les marques i les versions es queden les de debò, perquè lliguin amb el navegador.
+MG.uaDades = function (G, d) {
+  "use strict";
+  const P = G.NavigatorUAData && G.NavigatorUAData.prototype;
+  if (!P || !d.uaDades) return;
+  const u = d.uaDades;
+  const def = (prop, v) => {
+    try { Object.defineProperty(P, prop, { get: function () { return v; }, configurable: true, enumerable: true }); } catch (e) { /* res */ }
+  };
+  def("platform", u.platform);
+  def("mobile", false);
+  const ghev = P.getHighEntropyValues;
+  if (typeof ghev === "function") {
+    P.getHighEntropyValues = function (pistes) {
+      return ghev.call(this, pistes).then((r) => {
+        for (const k of ["platform", "platformVersion", "architecture", "bitness", "model", "mobile", "wow64"]) {
+          if (k in r || (Array.isArray(pistes) && pistes.includes(k))) r[k] = u[k];
+        }
+        if ("formFactors" in r) r.formFactors = ["Desktop"];
+        return r;
+      });
+    };
+  }
+  const json = P.toJSON;
+  if (typeof json === "function") {
+    P.toJSON = function () { const r = json.call(this); r.platform = u.platform; r.mobile = false; return r; };
+  }
+};
+
 // El codi que va al començament de cada treballador: només ASCII, perquè serveixi
 // sigui quina sigui la codificació de l'script.
 MG.codiTreballador = function (d, f) {
-  const json = (o) => JSON.stringify(o).replace(/[\u007f-￿]/g, (c) => "\\u" + c.charCodeAt(0).toString(16).padStart(4, "0"));
-  const ascii = (s) => s.replace(/[\u007f-￿]/g, (c) => "\\u" + c.charCodeAt(0).toString(16).padStart(4, "0"));
+  const json = (o) => JSON.stringify(o).replace(/[\u007f-\uffff]/g, (c) => "\\u" + c.charCodeAt(0).toString(16).padStart(4, "0"));
+  const ascii = (s) => s.replace(/[\u007f-\uffff]/g, (c) => "\\u" + c.charCodeAt(0).toString(16).padStart(4, "0"));
   return ascii("(function(){try{var d=" + json(d) + ",f=" + json(f) + ",id=function(x){return x};" +
     "var zonaReal=Intl.DateTimeFormat().resolvedOptions().timeZone;" +
     "var sorolla=" + MG.sorolla.toString() + ";" +
     "(" + MG.zonaIdioma.toString() + ")(self,d,f,{fn:id,ganxo:id,Date:Date,DTF:Intl.DateTimeFormat,zonaReal:zonaReal});" +
     "(" + MG.restaTreballador.toString() + ")(self,d,f,sorolla);" +
+    "if(f.navegador)(" + MG.uaDades.toString() + ")(self,d);" +
     "}catch(e){}})();\n");
 };

@@ -1,6 +1,6 @@
 # Menja galetes
 
-Una extensió per al Firefox que es menja la primera galeta abans que es desi, i et disfressa perquè els webs s'emportin dades falses.
+Una extensió per al Firefox, el Vivaldi, el Chrome i el Brave que es menja la primera galeta abans que es desi, i et disfressa perquè els webs s'emportin dades falses.
 
 És per a la intimitat: perquè els anunciants i els rastrejadors no et puguin seguir d'un web a l'altre ni d'una visita a l'altra. No és per amagar-se ni per enganyar ningú (vegeu [Què no fa](#què-no-fa)).
 
@@ -44,6 +44,8 @@ La disfressa arriba també als llocs on els webs més espavilats van a buscar el
 
 ## Com instal·lar-la
 
+### Al Firefox
+
 Mentre no estigui signada per Mozilla, s'instal·la com a complement temporal (s'esborra en tancar el Firefox):
 
 1. Obre `about:debugging#/runtime/this-firefox`.
@@ -51,12 +53,30 @@ Mentre no estigui signada per Mozilla, s'instal·la com a complement temporal (s
 
 Cal el Firefox 128 o més nou.
 
+### Al Vivaldi, el Chrome i el Brave
+
+1. Munta-la: `python3 eines/construeix-chromium.py` (la deixa a `construit/menja-galetes-chromium/`).
+2. Obre `vivaldi://extensions` (o `chrome://extensions`) i activa el **mode de desenvolupador**.
+3. Clica «Carrega l'extensió desempaquetada» i tria la carpeta `construit/menja-galetes-chromium`.
+4. Obre els **detalls** de Menja galetes i activa **«Permet els scripts d'usuari»**. Sense això no et pot disfressar (les galetes, se les menja igualment), i la finestreta t'ho recorda.
+
+Instal·lada així, s'hi queda encara que tanquis el navegador. Si la tornes a muntar, clica el botó de tornar a carregar de l'extensió.
+
+Al Chromium, l'extensió fa el mateix que al Firefox, amb aquestes diferències:
+- **Les galetes de tercers no es desen mai** (s'eliminen a la xarxa), perquè el Chromium les comparteix entre tots els webs. Les dels bancs, pagaments i sistemes contra el frau sí.
+- **Les galetes de seguiment que el web posa per capçalera es canvien per falses just després de desar-se**, no abans: el Chromium no deixa reescriure-les. Les que es posen per JavaScript (la majoria: `_ga`, `_fbp`…) sí que es canvien abans.
+- **Els treballadors de fitxer i els service workers no es disfressen**; els que crea la pàgina mateixa (des d'un `blob:`), sí.
+- **No es reconeixen els bancs pel certificat** (el Chromium no el deixa llegir). Es reconeixen pel nom, pels sistemes contra el frau i per les pàgines amb contrasenya o targeta.
+- **La disfressa de les capçaleres va per pestanya**: la primera petició d'un web nou pot sortir amb la del web anterior. La de la pàgina sí que hi és des del principi.
+
 ## Com està feta
 
 - `extensio/fons.js`: reescriu les `Set-Cookie` abans que es desin (`webRequest` bloquejant, que el Firefox manté a Manifest V2), posa la disfressa a les capçaleres i se les menja quan tanques la pestanya.
 - `extensio/lib/pagina.js`: el codi que va a cada pàgina a `document_start`, abans que cap script del web. Toca els objectes de la pàgina amb les Xray del Firefox (`wrappedJSObject`, `exportFunction`).
 - `extensio/lib/comu.js`: les peces comunes (llocs, galetes de seguiment, països i disfresses).
+- `chromium/`: la versió per al Vivaldi, el Chrome i el Brave (Manifest V3). `fons.js` és un *service worker* que fa servir `declarativeNetRequest`, `userScripts` i `cookies`; `pagina.js` és el codi de pàgina (al món MAIN); `contingut.js` respon els avisos i detecta les pàgines amb contrasenya. La finestreta, les opcions i `lib/comu.js` són els mateixos del Firefox: `eines/construeix-chromium.py` ho ajunta tot.
 - `proves/prova.py`: obre un Firefox a part, sense finestra, amb un perfil temporal, i fa 96 proves contra un servidor local. Només fa servir Python i el protocol Marionette del Firefox: `python3 proves/prova.py`.
+- `proves/prova-chromium.mjs`: el mateix amb un Vivaldi a part (41 proves), controlat amb el protocol DevTools des del Node: `node proves/prova-chromium.mjs`.
 
 ## Llicència
 

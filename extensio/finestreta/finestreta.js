@@ -17,6 +17,18 @@ function h(etiqueta, ...fills) {
 
 const escurça = (v, n = 18) => (v.length > n ? v.slice(0, n) + "…" : v);
 
+// El navegador i el sistema de debò (els de la finestreta no van disfressats).
+function navegadorReal() {
+  if (/Firefox\//.test(navigator.userAgent)) return "Firefox";
+  const marques = (navigator.userAgentData && navigator.userAgentData.brands) || [];
+  const m = marques.map((b) => b.brand).find((b) => !/Chromium|Not/i.test(b));
+  return m ? m.replace("Google ", "") : "Vivaldi";
+}
+function sistemaReal() {
+  const p = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || "";
+  return /linux/i.test(p) ? "Linux" : /win/i.test(p) ? "Windows" : /mac/i.test(p) ? "macOS" : p;
+}
+
 async function pestanyaActual() {
   const p = new URLSearchParams(location.search);
   if (p.get("web")) {
@@ -58,6 +70,10 @@ async function pinta() {
   if (!cfg.actiu) {
     cos.append(h("div.buit", "Menja galetes dorm. Encén-lo amb l'interruptor de dalt."));
     return;
+  }
+  if (e.scriptsUsuari === false) {
+    cos.append(h("div.nota-ip", "Per poder-te disfressar, cal un permís: a la pàgina d'extensions (vivaldi://extensions), " +
+      "obre els detalls de Menja galetes i activa «Permet els scripts d'usuari». Les galetes, me les menjo igualment."));
   }
 
   if (confiat) {
@@ -115,7 +131,7 @@ async function pinta() {
   cos.append(h("div.disf-cap", imgD, h("div", h("div.sota", "I es pensa que ets"), h("div.mitja", d.nom))));
   const idiomaReal = MG.IDIOMES[(navigator.language || "").split("-")[0]] || navigator.language;
   const files = [];
-  if (f.navegador) files.push(["Navegador", `Firefox ${cfg.versio} · ${d.soNom}`, "Firefox · Linux", ""]);
+  if (f.navegador) files.push(["Navegador", `${d.navegadorNom} ${cfg.versio} · ${d.soNom}`, `${navegadorReal()} · ${sistemaReal()}`, ""]);
   if (f.ubicacio) files.push(["Ubicació", d.ciutat, "amagada", ""]);
   if (f.idioma) files.push(["Idioma", MG.IDIOMES[d.idiomes[0].split("-")[0]] || d.idiomes[0], idiomaReal, ""]);
   if (f.pantalla) files.push(["Pantalla", `${d.pantalla.w} × ${d.pantalla.h}`, `${real.w} × ${real.h}`, ""]);
