@@ -36,9 +36,10 @@ function MG_pagina(MG, cfg) {
   if (!llocSuperior) llocSuperior = "atzar:" + MG.aleatori(1e9);
   // Web de confiança de l'usuari: no es toca res.
   if ((cfg.confianca || []).some((w) => MG.lloc(w) === llocSuperior)) return;
-  // Banc, govern, pagaments, o web amb contrasenya o sistema contra el frau: sense disfressa,
-  // però les galetes de seguiment que hi posen els tercers per JavaScript, se les menja.
-  const real = MG.esSempreReal(hostSuperior) || (cfg.realAuto || []).includes(llocSuperior);
+  // Banc, govern, pagaments, xarxa social o de cites, o web amb contrasenya o sistema contra
+  // el frau: sense disfressa, però les galetes de seguiment que hi posen els tercers per
+  // JavaScript, se les menja.
+  const real = MG.esIdentitatReal(hostSuperior) || (cfg.realAuto || []).includes(llocSuperior);
   if (real && MG.esProtegitFrau(location.hostname) && location.hostname !== hostSuperior) return;
 
   const f = cfg.falseja;

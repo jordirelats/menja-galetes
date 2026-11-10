@@ -80,7 +80,7 @@ const confiat = (lloc) => MG.esConfiat(lloc, cfg.confianca) || cfg.realAuto.incl
 // contrasenya o amb sistemes contra el frau) no hi ha disfressa, però les galetes de
 // tercers i de seguiment se les menja igualment.
 const deConfianca = (lloc) => !!lloc && (cfg.confianca || []).some((w) => MG.lloc(w) === lloc);
-const esReal = (host) => !!host && (MG.esSempreReal(host) || cfg.realAuto.includes(MG.lloc(host)));
+const esReal = (host) => !!host && (MG.esIdentitatReal(host) || cfg.realAuto.includes(MG.lloc(host)));
 
 /* ---- Pestanyes ---- */
 
@@ -179,7 +179,7 @@ async function menja(lloc, { obertes = false, protegides = false } = {}) {
   // Les galetes amagades (localStorage, IndexedDB). Als webs on ja hi havia una sessió
   // abans d'instal·lar l'extensió no, perquè sovint hi guarden l'entrada.
   if (!real && (protegides || !llocsProtegits.has(lloc))) {
-    try { await browser.browsingData.remove({ hostnames: [lloc] }, { localStorage: true, indexedDB: true }); } catch (e) { /* res */ }
+    try { await browser.browsingData.remove({ hostnames: [lloc] }, { localStorage: true, indexedDB: true, serviceWorkers: true }); } catch (e) { /* res */ }
   }
   if (protegides) {
     let canvi = false;
@@ -209,8 +209,8 @@ function hostSuperiorDe(det) {
   return p ? p.lloc : "";
 }
 const llocSuperiorDe = (det) => MG.lloc(hostSuperiorDe(det));
-// Un web de confiança, o que sempre va amb la identitat real (bancs, governs…).
-const confiatHost = (host) => !!host && (confiat(MG.lloc(host)) || MG.esSempreReal(host));
+// Un web de confiança, o que sempre va amb la identitat real (bancs, governs, xarxes…).
+const confiatHost = (host) => !!host && (confiat(MG.lloc(host)) || MG.esIdentitatReal(host));
 
 // Un web que ha de veure el navegador de debò a partir d'ara (automàtic).
 const marcant = new Set();
@@ -238,6 +238,16 @@ function detectaAntifrau(det) {
   marcaReal(lloc, det.tabId, true);
 }
 browser.webRequest.onBeforeRequest.addListener(detectaAntifrau, { urls: ["<all_urls>"] });
+
+// Els identificadors dels enllaços (fbclid, gclid, utm_…) es treuen abans que la pàgina carregui.
+function netejaEnllac(det) {
+  if (!cfg.actiu || det.method !== "GET" || det.tabId < 0) return {};
+  const lloc = det.type === "main_frame" ? MG.llocDeUrl(det.url) : llocSuperiorDe(det);
+  if (!lloc || deConfianca(lloc)) return {};
+  const net = MG.netejaUrl(det.url);
+  return net ? { redirectUrl: net } : {};
+}
+browser.webRequest.onBeforeRequest.addListener(netejaEnllac, { urls: ["<all_urls>"], types: ["main_frame", "sub_frame"] }, ["blocking"]);
 browser.webRequest.onErrorOccurred.addListener(detectaAntifrau, { urls: ["<all_urls>"] });
 
 // Afegeix la disfressa al començament de l'script d'un treballador mentre baixa.
@@ -278,7 +288,11 @@ function abansEnviar(det) {
   if (!hostSup && treballador) hostSup = new URL(det.url).hostname;
   const lloc = MG.lloc(hostSup);
   if (det.type === "main_frame" && lloc && det.tabId >= 0) estatPestanya(det.tabId, lloc);
-  if (!lloc || confiatHost(hostSup) || confiatHost(new URL(det.url).hostname)) return {};
+  const hostReq = new URL(det.url).hostname;
+  // Sense disfressa si el web de dalt és de confiança o real, o si la petició va a un banc,
+  // un pagament o un sistema contra el frau. (Un botó de Facebook dins d'un diari, en canvi,
+  // va disfressat com el diari.)
+  if (!lloc || confiatHost(hostSup) || deConfianca(MG.lloc(hostReq)) || MG.esProtegitFrau(hostReq)) return {};
   // Un sistema contra el frau o de verificació d'identitat: aquest web, sense disfressa.
   if (MG.esAntifrau(new URL(det.url).hostname)) {
     marcaReal(lloc, det.tabId, true);
@@ -300,6 +314,11 @@ function abansEnviar(det) {
     }
   }
   if (f.ipCapcaleres && d.ip) hs.push({ name: "X-Forwarded-For", value: d.ip });
+  // ETag: un tercer pot fer servir la memòria cau com una galeta (et dona un ETag únic i el
+  // reconeix quan el navegador el torna). Als tercers no se'ls torna.
+  if (f.galetes && MG.lloc(hostReq) !== lloc) {
+    for (let i = hs.length - 1; i >= 0; i--) if (hs[i].name.toLowerCase() === "if-none-match") hs.splice(i, 1);
+  }
   return { requestHeaders: hs };
 }
 

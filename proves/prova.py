@@ -83,6 +83,11 @@ def prova_llista_fixa():
       "www.bankofamerica.com": true, "www.irs.gov": true, "www.gov.uk": true, "www.impots.gouv.fr": true, "www.sparkasse.de": true,
       "www.e-tax.nta.go.jp": true, "ajuntament.barcelona.cat": true, "www.canada.ca": true, "govee.com": false, "www.booking.com": false};
     for (const [h, esperat] of Object.entries(casos)) console.log(h, MG.esSempreReal(h) === esperat ? "OK" : "FALLA");"""
+    codi += """
+    ;const xarxes = {"www.instagram.com": true, "web.whatsapp.com": true, "www.tiktok.com": true, "www.roblox.com": true,
+      "tinder.com": true, "www.lavanguardia.com": false};
+    for (const [h, esperat] of Object.entries(xarxes)) console.log("xarxa:" + h, MG.esIdentitatReal(h) === esperat ? "OK" : "FALLA");
+    for (const h of ["www.facebook.com", "www.instagram.com"]) console.log("no-protegit:" + h, MG.esProtegitFrau(h) ? "FALLA" : "OK");"""
     sortida = subprocess.run(["node", "-e", codi], capture_output=True, text=True).stdout.split("\n")
     for l in filter(None, sortida):
         host, r = l.rsplit(" ", 1)
@@ -103,12 +108,13 @@ def main():
         'user_pref("browser.startup.homepage_override.mstone", "ignore");',
         'user_pref("browser.aboutwelcome.enabled", false);',
         'user_pref("network.dns.disableIPv6", true);',
+        'user_pref("network.stricttransportsecurity.preloadlist", false);',   # que www.instagram.com vagi per http al servidor local
         'user_pref("browser.ipProtection.enabled", false);',
         'user_pref("intl.locale.requested", "ca");',
         'user_pref("intl.accept_languages", "ca,es,en");',
         # Noms de prova que van al servidor local (no surt res a internet)
         'user_pref("network.dns.localDomains", "diari.test,www.bancprova.test,www.prova.gob.es,botiga.test,'
-        'h.online-metrix.net,empresa.test");',
+        'h.online-metrix.net,empresa.test,www.instagram.com");',
     ]))
     env = dict(os.environ, MOZ_HEADLESS="1")
     ff = subprocess.Popen(["firefox", "--headless", "--marionette", "-remote-allow-system-access", "--no-remote", "--profile", str(perfil)],
@@ -168,7 +174,8 @@ def main():
         comprova("zona horària d'Espanya", info.get("zona") == "Europe/Madrid", info.get("zona"))
         comprova("nuclis falsos", info.get("nuclis") in (4, 8, 12, 16), info.get("nuclis"))
         comprova("canvas: el mateix soroll dues vegades", info.get("canvas1") == info.get("canvas2"))
-        comprova("WebRTC: la IP del candidat és la falsa", "83.45.10.20" not in str(info.get("rtc")), info.get("rtc"))
+        comprova("WebRTC: la IP del candidat és la falsa, i de ningú", "83.45.10.20" not in str(info.get("rtc"))
+                 and " 100." in str(info.get("rtc")), info.get("rtc"))
         comprova("WebGL: gràfica de la disfressa", "or similar" in str(info.get("webgl")) and "ANGLE" in str(info.get("webgl"))
                  or "Apple" in str(info.get("webgl")) or "sense" in str(info.get("webgl")), info.get("webgl"))
 
@@ -179,6 +186,13 @@ def main():
                  and info2.get("screen") == info.get("screen"))
         comprova("en tornar-hi, el mateix _ga fals", ("_ga=" + ga[0]["value"]) in info2.get("cookie", "") if ga else False)
 
+        # ---- 2b. Els identificadors dels enllaços ----
+        m.ves(f"{WEB}/simple?fbclid=IwAR0abc&utm_source=newsletter&gclid=Cj0K&id=5")
+        time.sleep(0.5)
+        net = m.js("return location.href;")
+        comprova("enllaç: fbclid, gclid i utm_ fora; id=5 es queda", net == f"{WEB}/simple?id=5", net)
+        m.ves(f"{WEB}/primera")                      # la finestreta (prova 5) mira aquesta pestanya
+
         # ---- 3. Capçaleres ----
         print("\n3. Les capçaleres")
         m.pestanya_nova()
@@ -187,7 +201,9 @@ def main():
         comprova("User-Agent de la capçalera = el de la pàgina", eco.get("User-Agent") == info.get("userAgent"),
                  eco.get("User-Agent"))
         comprova("Accept-Language en castellà", eco.get("Accept-Language", "").startswith("es"), eco.get("Accept-Language"))
-        comprova("X-Forwarded-For amb una IP falsa", bool(eco.get("X-Forwarded-For")), eco.get("X-Forwarded-For"))
+        xff = eco.get("X-Forwarded-For", "0.0.0.0").split(".")
+        comprova("X-Forwarded-For: una IP de ningú (100.64.0.0/10)", xff[0] == "100" and 64 <= int(xff[1]) <= 127,
+                 eco.get("X-Forwarded-For"))
 
         # ---- 4. L'avís de galetes ----
         print("\n4. L'avís de galetes")
@@ -326,6 +342,15 @@ def main():
         time.sleep(1.5)                       # la pàgina es torna a carregar sola
         e = info_pagina(m)
         comprova("una botiga amb sistema contra el frau: navegador de debò", "Linux" in e.get("userAgent", ""), e.get("userAgent"))
+        x = simple("http://www.instagram.com:8765/simple?marc=1")
+        time.sleep(1)
+        comprova("una xarxa social: navegador de debò", "Linux" in x.get("userAgent", ""), x.get("userAgent"))
+        comprova("la sessió de la xarxa, tal qual", "sessio=banc123" in x.get("cookie", ""), x.get("cookie"))
+        comprova("la _ga a la xarxa, menjada", "GA1.1.111111111" not in x.get("cookie", "x"), x.get("cookie"))
+        gs = galetes(m)
+        ide = [g for g in gs if g["name"] == "IDE" and "instagram" in (g["partition"] or "")]
+        comprova("les galetes de tercers a la xarxa, menjades", ide and ide[0]["value"] != "AHWqTUmREALREAL123",
+                 ide and f"{ide[0]['value']} · {ide[0]['partition']}")
         m.ves(f"moz-extension://{uuid}/opcions/opcions.html")
         m.js_async("const f = arguments[arguments.length-1]; (window.wrappedJSObject||window).browser.storage.local.set({provaOrganitzacio: {'empresa.test': 'Banco de Prova S.A.'}}).then(() => f('ok'))")
         g = simple("http://empresa.test:8765/simple")

@@ -139,6 +139,41 @@ MG.ANTIFRAU = [
 ];
 MG.esAntifrau = (host) => { const l = MG.lloc(host); return MG.ANTIFRAU.some((s) => l === s || l.endsWith("." + s)); };
 
+// Identificadors que viatgen dins dels enllaços (galetes que no són galetes): els clics
+// d'anuncis i de xarxes socials, i les campanyes.
+MG.PARAMS_SEGUIMENT = /^(fbclid|gclid|gbraid|wbraid|dclid|gclsrc|msclkid|yclid|twclid|ttclid|li_fat_id|igshid|igsh|epik|mc_eid|_hsenc|_hsmi|__hssc|__hstc|__hsfp|hsCtaTracking|mkt_tok|vero_id|oly_anon_id|oly_enc_id|rb_clickid|_openstat|s_cid|ef_id|scid|irclickid|wickedid|srsltid|utm_[a-z_]+)$/i;
+
+// Treu-los d'una adreça. Torna null si no n'hi havia cap.
+MG.netejaUrl = function (url) {
+  let u;
+  try { u = new URL(url); } catch (e) { return null; }
+  let canvi = false;
+  for (const k of [...u.searchParams.keys()]) {
+    if (MG.PARAMS_SEGUIMENT.test(k)) { u.searchParams.delete(k); canvi = true; }
+  }
+  return canvi ? u.href : null;
+};
+
+// Xarxes socials, missatgeria, cites i plataformes on hi ha menors: s'hi va amb la identitat
+// real, perquè els seus sistemes contra els comptes falsos, l'assetjament i els usuaris
+// expulsats que tornen amb un altre compte funcionin. (Les galetes de tercers, igualment
+// se les menja.)
+MG.XARXES = [
+  "facebook.com", "fb.com", "messenger.com", "instagram.com", "threads.net", "threads.com", "whatsapp.com",
+  "tiktok.com", "x.com", "twitter.com", "snapchat.com", "discord.com", "discord.gg", "telegram.org", "t.me",
+  "signal.org", "reddit.com", "twitch.tv", "kick.com", "linkedin.com", "pinterest.com", "tumblr.com", "bsky.app",
+  "mastodon.social", "vk.com", "ok.ru", "wechat.com", "line.me", "viber.com", "skype.com", "kik.com",
+  "tinder.com", "gotinder.com", "bumble.com", "badoo.com", "hinge.co", "grindr.com", "okcupid.com", "meetic.es",
+  "meetic.com", "match.com", "pof.com", "lovoo.com", "happn.com", "feeld.co",
+  "roblox.com", "minecraft.net", "epicgames.com", "fortnite.com", "steamcommunity.com", "steampowered.com",
+  "xbox.com", "playstation.com", "chatroulette.com", "ome.tv", "yubo.live", "wattpad.com", "habbo.com",
+  "moviestarplanet.com", "ask.fm", "tellonym.me", "ngl.link",
+];
+MG.esXarxa = (host) => { const l = MG.lloc(host); return MG.XARXES.some((s) => l === s || l.endsWith("." + s)); };
+
+// Webs on es va sense disfressa: bancs, pagaments, governs, i xarxes i cites.
+MG.esIdentitatReal = (host) => MG.esSempreReal(host) || MG.esXarxa(host);
+
 // Galetes que no es toquen mai, ni als bancs: les dels bancs, pagaments, governs i sistemes
 // contra el frau (encara que vinguin d'un altre web).
 MG.esProtegitFrau = (host) => MG.esSempreReal(host) || MG.esAntifrau(host);
@@ -251,12 +286,14 @@ MG.barreja = function (v) {
 
 /* ---- Països i disfresses ----------------------------------------------------------- */
 
-// blocs: rangs d'adreces de proveïdors grans d'aquell país, perquè la IP falsa
-// sembli d'allà. Són aproximats; si un país no en té, no s'hi posa IP falsa.
+// La IP falsa (la que reben els scripts i la de X-Forwarded-For) surt sempre de l'espai
+// compartit que els proveïdors fan servir per dins (100.64.0.0/10, RFC 6598): sembla
+// d'una connexió de debò, però no és l'adreça de ningú, i no pot apuntar cap persona.
+MG.BLOC_IP_FALSA = "100.64.0.0/10";
+
 MG.PAISOS = {
   ES: { nom: "Espanya", de: "d'Espanya", idiomes: ["es-ES", "es"],
     accept: "es-ES,es;q=0.8,en-US;q=0.5,en;q=0.3", zona: "Europe/Madrid",
-    blocs: ["83.32.0.0/11", "88.0.0.0/11"],
     ciutats: [["Saragossa", 41.65, -0.88], ["València", 39.47, -0.38], ["Sevilla", 37.39, -5.98],
       ["Màlaga", 36.72, -4.42], ["Bilbao", 43.26, -2.93], ["Valladolid", 41.65, -4.72],
       ["Múrcia", 37.98, -1.13], ["Palma", 39.57, 2.65], ["Alacant", 38.35, -0.48],
@@ -264,43 +301,43 @@ MG.PAISOS = {
       ["Oviedo", 43.36, -5.85], ["Pamplona", 42.81, -1.64], ["Santander", 43.46, -3.81],
       ["Salamanca", 40.97, -5.66], ["Burgos", 42.34, -3.7], ["Logronyo", 42.47, -2.45]] },
   FR: { nom: "França", de: "de França", idiomes: ["fr-FR", "fr"],
-    accept: "fr-FR,fr;q=0.8,en-US;q=0.5,en;q=0.3", zona: "Europe/Paris", blocs: ["90.0.0.0/9"],
+    accept: "fr-FR,fr;q=0.8,en-US;q=0.5,en;q=0.3", zona: "Europe/Paris",
     ciutats: [["Lió", 45.76, 4.84], ["Marsella", 43.3, 5.37], ["Tolosa", 43.6, 1.44], ["Niça", 43.7, 7.27],
       ["Nantes", 47.22, -1.55], ["Estrasburg", 48.57, 7.75], ["Bordeus", 44.84, -0.58], ["Lilla", 50.63, 3.06]] },
   DE: { nom: "Alemanya", de: "d'Alemanya", idiomes: ["de", "en-US", "en"],
-    accept: "de,en-US;q=0.7,en;q=0.3", zona: "Europe/Berlin", blocs: ["79.192.0.0/10"],
+    accept: "de,en-US;q=0.7,en;q=0.3", zona: "Europe/Berlin",
     ciutats: [["Berlín", 52.52, 13.4], ["Munic", 48.14, 11.58], ["Hamburg", 53.55, 9.99], ["Colònia", 50.94, 6.96],
       ["Frankfurt", 50.11, 8.68], ["Stuttgart", 48.78, 9.18], ["Leipzig", 51.34, 12.37]] },
   PT: { nom: "Portugal", de: "de Portugal", idiomes: ["pt-PT", "pt"],
-    accept: "pt-PT,pt;q=0.8,en;q=0.5,en-US;q=0.3", zona: "Europe/Lisbon", blocs: [],
+    accept: "pt-PT,pt;q=0.8,en;q=0.5,en-US;q=0.3", zona: "Europe/Lisbon",
     ciutats: [["Lisboa", 38.72, -9.14], ["Porto", 41.15, -8.61], ["Braga", 41.55, -8.42], ["Coïmbra", 40.21, -8.43]] },
   IT: { nom: "Itàlia", de: "d'Itàlia", idiomes: ["it-IT", "it"],
-    accept: "it-IT,it;q=0.8,en-US;q=0.5,en;q=0.3", zona: "Europe/Rome", blocs: [],
+    accept: "it-IT,it;q=0.8,en-US;q=0.5,en;q=0.3", zona: "Europe/Rome",
     ciutats: [["Milà", 45.46, 9.19], ["Roma", 41.9, 12.5], ["Torí", 45.07, 7.69], ["Bolonya", 44.49, 11.34],
       ["Florència", 43.77, 11.26], ["Nàpols", 40.85, 14.27]] },
   GB: { nom: "el Regne Unit", de: "del Regne Unit", idiomes: ["en-GB", "en"],
-    accept: "en-GB,en;q=0.5", zona: "Europe/London", blocs: ["86.128.0.0/10"],
+    accept: "en-GB,en;q=0.5", zona: "Europe/London",
     ciutats: [["Manchester", 53.48, -2.24], ["Birmingham", 52.49, -1.89], ["Leeds", 53.8, -1.55],
       ["Bristol", 51.45, -2.59], ["Glasgow", 55.86, -4.25], ["Londres", 51.51, -0.13]] },
   NL: { nom: "els Països Baixos", de: "dels Països Baixos", idiomes: ["nl", "en-US", "en"],
-    accept: "nl,en-US;q=0.7,en;q=0.3", zona: "Europe/Amsterdam", blocs: [],
+    accept: "nl,en-US;q=0.7,en;q=0.3", zona: "Europe/Amsterdam",
     ciutats: [["Amsterdam", 52.37, 4.9], ["Rotterdam", 51.92, 4.48], ["Utrecht", 52.09, 5.12], ["Eindhoven", 51.44, 5.48]] },
   US: { nom: "els Estats Units", de: "dels Estats Units", idiomes: ["en-US", "en"],
-    accept: "en-US,en;q=0.5", zona: "America/New_York", blocs: ["73.0.0.0/8"],
+    accept: "en-US,en;q=0.5", zona: "America/New_York",
     ciutats: [["Nova York", 40.71, -74.01], ["Boston", 42.36, -71.06], ["Filadèlfia", 39.95, -75.17],
       ["Atlanta", 33.75, -84.39], ["Miami", 25.76, -80.19]] },
   JP: { nom: "el Japó", de: "del Japó", idiomes: ["ja", "en-US", "en"],
-    accept: "ja,en-US;q=0.7,en;q=0.3", zona: "Asia/Tokyo", blocs: ["126.0.0.0/8"],
+    accept: "ja,en-US;q=0.7,en;q=0.3", zona: "Asia/Tokyo",
     ciutats: [["Tòquio", 35.68, 139.69], ["Osaka", 34.69, 135.5], ["Nagoya", 35.18, 136.91],
       ["Sapporo", 43.06, 141.35], ["Fukuoka", 33.59, 130.4]] },
   AR: { nom: "l'Argentina", de: "de l'Argentina", idiomes: ["es-AR", "es"],
-    accept: "es-AR,es;q=0.8,en-US;q=0.5,en;q=0.3", zona: "America/Argentina/Buenos_Aires", blocs: [],
+    accept: "es-AR,es;q=0.8,en-US;q=0.5,en;q=0.3", zona: "America/Argentina/Buenos_Aires",
     ciutats: [["Buenos Aires", -34.6, -58.38], ["Córdoba", -31.42, -64.18], ["Rosario", -32.95, -60.65], ["Mendoza", -32.89, -68.83]] },
   AU: { nom: "Austràlia", de: "d'Austràlia", idiomes: ["en-AU", "en"],
-    accept: "en-AU,en;q=0.5", zona: "Australia/Sydney", blocs: [],
+    accept: "en-AU,en;q=0.5", zona: "Australia/Sydney",
     ciutats: [["Sydney", -33.87, 151.21], ["Melbourne", -37.81, 144.96], ["Canberra", -35.28, 149.13]] },
   ZA: { nom: "Sud-àfrica", de: "de Sud-àfrica", idiomes: ["en-ZA", "en"],
-    accept: "en-ZA,en;q=0.5", zona: "Africa/Johannesburg", blocs: [],
+    accept: "en-ZA,en;q=0.5", zona: "Africa/Johannesburg",
     ciutats: [["Johannesburg", -26.2, 28.05], ["Ciutat del Cap", -33.92, 18.42], ["Durban", -29.86, 31.02], ["Pretòria", -25.75, 28.19]] },
 };
 
@@ -382,7 +419,7 @@ MG.disfressa = function (cfg, lloc, real) {
   const dpr = tria(S.dpr);
   const nuclis = tria([4, 8, 8, 12, 16]);
   const gpu = tria(S.gpu);
-  const ip = MG.ipDe(p.blocs, r);
+  const ip = MG.ipDe([MG.BLOC_IP_FALSA], r);
   const lat = Math.round((ciutat[1] + (r() - 0.5) * 0.06) * 1e5) / 1e5;
   const lon = Math.round((ciutat[2] + (r() - 0.5) * 0.06) * 1e5) / 1e5;
   const soroll = Math.floor(r() * 2147483647);

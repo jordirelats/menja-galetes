@@ -6,7 +6,13 @@ Una extensió per al Firefox que es menja la primera galeta abans que es desi, i
 
 ## Què fa
 
-**Es menja la primera galeta.** Quan un web et vol posar una galeta de seguiment (`_ga`, `_fbp`, `_gcl_au`, `IDE` i una seixantena més), Menja galetes la reescriu abans que el Firefox la desi, i hi posa un identificador inventat amb la mateixa forma. El web no veu mai el teu identificador de debò, ni la primera vegada. Les galetes de funcionament (la cistella, l'idioma) es queden fins que tanques la pestanya, i aleshores se les menja totes, també les de `localStorage` i `IndexedDB`.
+**Es menja la primera galeta.** Quan un web et vol posar una galeta de seguiment (`_ga`, `_fbp`, `_gcl_au`, `IDE` i una seixantena més), Menja galetes la reescriu abans que el Firefox la desi, i hi posa un identificador inventat amb la mateixa forma. El web no veu mai el teu identificador de debò, ni la primera vegada. Les galetes de funcionament (la cistella, l'idioma) es queden fins que tanques la pestanya, i aleshores se les menja totes.
+
+**També es menja les galetes que no són galetes**, els altres llocs on un web pot guardar o fer viatjar el teu identificador:
+- `localStorage`, `IndexedDB`, la memòria de l'API Cache i els *service workers*, en tancar la pestanya.
+- Els identificadors dels enllaços (`fbclid`, `gclid`, `msclkid`, `igshid`, `utm_*`…), que es treuen de l'adreça abans que la pàgina carregui.
+- Els ETag: als tercers no se'ls torna, perquè no puguin fer servir la memòria cau com una galeta.
+- L'empremta del navegador, amb la disfressa (més avall).
 
 **Et disfressa.** Cada web veu un navegador diferent i coherent: un altre sistema (Windows o Mac), una altra ciutat del mateix país que la teva IP, un altre idioma i una altra zona horària (`Date`, `Intl`, `Temporal`, `toLocale*`), una altra pantalla i una altra targeta gràfica, i una empremta de canvas i d'àudio inventada. La disfressa és la mateixa cada vegada que tornes al mateix web, i diferent per a cada web.
 
@@ -14,7 +20,7 @@ La disfressa arriba també als llocs on els webs més espavilats van a buscar el
 - **Els marcs que la pàgina crea** (`iframe`, `window[0]`, `innerHTML`, `window.open`) es disfressen en el moment que es creen, abans que la pàgina els pugui llegir.
 - **Els treballadors** (`Worker`, `SharedWorker` i service workers): els que són un fitxer reben la disfressa al començament de l'script mentre baixa, i els que la pàgina crea des d'un `blob:` es creen amb la disfressa a dins.
 
-**IP falses on es pot.** Els scripts que pregunten la IP per WebRTC en reben una de falsa, i les peticions porten una IP falsa a `X-Forwarded-For`. La IP de la connexió és la real: una extensió no la pot canviar.
+**IP falses on es pot.** Els scripts que pregunten la IP per WebRTC en reben una de falsa, i les peticions porten una IP falsa a `X-Forwarded-For`. Aquestes IP surten sempre de l'espai que els proveïdors fan servir per dins (`100.64.0.0/10`): semblen d'una connexió de debò, però no són de ningú, i no poden apuntar cap persona. La IP de la connexió és la real: una extensió no la pot canviar.
 
 **Respon els avisos de galetes** (OneTrust, Cookiebot, Didomi, Usercentrics, Sourcepoint i altres): els accepta o els rebutja per tu, com triïs.
 
@@ -22,6 +28,7 @@ La disfressa arriba també als llocs on els webs més espavilats van a buscar el
 
 ## Què no fa
 
+- **No et deixa fer-te passar per ningú.** La disfressa la inventa l'extensió, a l'atzar i diferent per a cada web. No es pot triar ni importar una disfressa, una empremta, una IP ni unes galetes, i no s'hi afegirà mai: és el que necessita qui vol suplantar la identitat d'una altra persona.
 - **No amaga la IP de la connexió.** Quan hi ha un delicte, la policia demana la IP al web i el proveïdor d'internet diu de qui és. Menja galetes no ho impedeix, a propòsit.
 - **No toca els comptes.** Si entres en un compte, el web sap qui ets.
 - **Qualsevol banc, pagament o govern del món, amb la identitat real.** Els seus sistemes contra el frau han de funcionar, i això no es pot treure. Es reconeixen de quatre maneres:
@@ -29,7 +36,8 @@ La disfressa arriba també als llocs on els webs més espavilats van a buscar el
   2. Pel certificat del web: si l'organització és un banc, una entitat financera o una administració («Banco…», «Credit Union», «Ministerio…», «Government…»), el web es torna a demanar sense disfressa abans que es vegi.
   3. Pels sistemes contra el frau i de verificació d'identitat (ThreatMetrix, iovation, BioCatch, Forter, SEON, Onfido, Jumio, Veriff…): si una pàgina en carrega un, el web passa a anar sense disfressa.
   4. Per les pàgines amb contrasenya o targeta: el primer cop que un web en demana una, passa a anar sense disfressa. Així els sistemes contra el frau i contra els comptes robats (i contra qui torna amb un altre compte després que l'hagin expulsat) continuen funcionant.
-- **Però als bancs i als governs, les galetes de tercers se les menja.** Les que hi posen Google, Facebook o els anunciants (també `_ga` i companyia) es canvien per falses i desapareixen en tancar la pestanya. Les del mateix banc (la sessió) i les dels pagaments i dels sistemes contra el frau no es toquen.
+- **Les xarxes socials, la missatgeria, les cites i les plataformes on hi ha menors, també amb la identitat real.** Instagram, TikTok, WhatsApp, Discord, Tinder, Roblox i la resta: és on passen l'assetjament i l'abús, i els seus sistemes contra els comptes falsos i contra qui torna després que l'expulsin han de funcionar.
+- **Però als bancs, als governs i a les xarxes, les galetes de tercers se les menja.** Les que hi posen Google, Facebook o els anunciants (també `_ga` i companyia) es canvien per falses i desapareixen en tancar la pestanya. Les del mateix banc (la sessió) i les dels pagaments i dels sistemes contra el frau no es toquen.
 - **No s'amaga.** Un web atent pot notar que fas servir alguna cosa així.
 
 ## Com instal·lar-la
@@ -46,7 +54,7 @@ Cal el Firefox 128 o més nou.
 - `extensio/fons.js`: reescriu les `Set-Cookie` abans que es desin (`webRequest` bloquejant, que el Firefox manté a Manifest V2), posa la disfressa a les capçaleres i se les menja quan tanques la pestanya.
 - `extensio/lib/pagina.js`: el codi que va a cada pàgina a `document_start`, abans que cap script del web. Toca els objectes de la pàgina amb les Xray del Firefox (`wrappedJSObject`, `exportFunction`).
 - `extensio/lib/comu.js`: les peces comunes (llocs, galetes de seguiment, països i disfresses).
-- `proves/prova.py`: obre un Firefox a part, sense finestra, amb un perfil temporal, i fa 81 proves contra un servidor local. Només fa servir Python i el protocol Marionette del Firefox: `python3 proves/prova.py`.
+- `proves/prova.py`: obre un Firefox a part, sense finestra, amb un perfil temporal, i fa 94 proves contra un servidor local. Només fa servir Python i el protocol Marionette del Firefox: `python3 proves/prova.py`.
 
 ## Llicència
 

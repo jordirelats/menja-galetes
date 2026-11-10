@@ -8,8 +8,8 @@ const FALSEJA = [
   ["pantalla", "Pantalla i maquinari", "Mida de pantalla, nuclis i targeta gràfica"],
   ["empremta", "Empremta", "Canvas i àudio amb soroll, perquè no et reconeguin"],
   ["galetes", "Galetes de seguiment", "Se les menja i hi posa identificadors inventats"],
-  ["ipScripts", "IP que demanen els scripts", "Els scripts que et pregunten la IP (WebRTC) en reben una de falsa"],
-  ["ipCapcaleres", "IP de les capçaleres", "Una IP falsa a X-Forwarded-For, per als webs que se la creuen"],
+  ["ipScripts", "IP que demanen els scripts", "Els scripts que et pregunten la IP (WebRTC) en reben una de falsa, que no és de ningú (100.64.x.x)"],
+  ["ipCapcaleres", "IP de les capçaleres", "Una IP falsa a X-Forwarded-For, que tampoc no és de ningú, per als webs que se la creuen"],
 ];
 
 let config = {};

@@ -49,8 +49,9 @@ async function pinta() {
   try { host = new URL(tab.url).hostname; } catch (e) { /* res */ }
   const usuari = (cfg.confianca || []).some((w) => MG.lloc(w) === lloc);
   const sempre = MG.esSempreReal(host);
+  const xarxa = !sempre && MG.esXarxa(host);
   const auto = (cfg.realAuto || []).includes(lloc);
-  const confiat = usuari || sempre || auto;
+  const confiat = usuari || sempre || xarxa || auto;
   const etiq = !cfg.actiu ? h("span.etiq.apagat", "Apagat") : confiat ? h("span.etiq.conf", "De confiança") : h("span.etiq.disf", "Disfressat");
   cos.append(h("div.web", "🌐", h("span.domini", lloc), etiq));
 
@@ -63,19 +64,21 @@ async function pinta() {
     const img = h("img"); img.src = "../icones/galeta.svg";
     const explica = sempre
       ? "És un banc, un web de pagaments o d'un govern. Els seus sistemes contra el frau han de veure el navegador de debò."
+      : xarxa
+        ? "És una xarxa social, de missatgeria o de cites, o una plataforma on hi ha menors. Hi vas amb la teva identitat real, perquè els seus sistemes contra els comptes falsos, l'assetjament i els usuaris expulsats funcionin."
       : auto
         ? "Aquest web demana una contrasenya o una targeta, fa servir un sistema contra el frau, o el seu certificat és d'un banc o d'una administració. Hi vas sense disfressa, perquè aquests sistemes funcionin."
         : "Les galetes d'aquest web es queden, i hi vas sense disfressa, perquè no et tregui de la sessió.";
     cos.append(h("div.heroi", img, h("div",
-      h("div.mitja.verd", sempre || auto ? "Aquí hi vas amb la teva identitat real" : "Aquí no em menjo res"),
+      h("div.mitja.verd", sempre || xarxa || auto ? "Aquí hi vas amb la teva identitat real" : "Aquí no em menjo res"),
       h("div.sota", explica))));
-    if ((sempre || auto) && e.galetes.length) {
+    if ((sempre || xarxa || auto) && e.galetes.length) {
       cos.append(h("div.titol-llista", "Galetes de tercers i de seguiment · menjades igualment"));
       cos.append(h("div.gls", e.galetes.slice(0, 8).map((g) =>
         h("div.gl", h("code", g.nom), h("s", escurça(g.original || "(buida)")), h("span.fl", "→"), h("b", escurça(g.fals)))
       )));
     }
-    if (!sempre && !auto) {
+    if (!sempre && !xarxa && !auto) {
       const b = h("button.sec", "Ja no hi confio");
       b.onclick = () => browser.runtime.sendMessage({ tipus: "confia", lloc, si: false, tabId: tab.id }).then(() => window.close());
       cos.append(h("div.peu", b));
@@ -117,8 +120,8 @@ async function pinta() {
   if (f.idioma) files.push(["Idioma", MG.IDIOMES[d.idiomes[0].split("-")[0]] || d.idiomes[0], idiomaReal, ""]);
   if (f.pantalla) files.push(["Pantalla", `${d.pantalla.w} × ${d.pantalla.h}`, `${real.w} × ${real.h}`, ""]);
   if (f.empremta) files.push(["Empremta", "inventada", "la teva", ""]);
-  if (f.ipScripts && d.ip) files.push(["IP scripts", `${d.ip} · ${d.ciutat}`, "la real", "ip"]);
-  if (f.ipCapcaleres && d.ip) files.push(["IP capçal.", `${d.ip} · ${d.ciutat}`, "cap", "ip"]);
+  if (f.ipScripts && d.ip) files.push(["IP scripts", `${d.ip} (de ningú)`, "la real", "ip"]);
+  if (f.ipCapcaleres && d.ip) files.push(["IP capçal.", `${d.ip} (de ningú)`, "cap", "ip"]);
   files.push(["IP connexió", "la real", "la real", "ip real"]);
   const fitxa = h("div.fitxa", h("div.th", "Què"), h("div.th", "Es pensa"), h("div.th", "Veritat"));
   for (const [q, fals, ver, c] of files) {
