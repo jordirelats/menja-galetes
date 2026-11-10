@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="ca">
+<head>
+<meta charset="utf-8">
+<title>Menja galetes · opcions</title>
+<link rel="stylesheet" href="../comu.css">
+<link rel="stylesheet" href="opcions.css">
+</head>
+<body>
+<main>
+  <div class="cap">
+    <img src="../icones/galeta.svg" alt="">
+    <span class="nom">Menja galetes · opcions</span>
+  </div>
+
+  <section>
+    <div class="triador" data-clau="avisos">
+      <b>Quan surti un avís de galetes</b>
+      <div class="segments">
+        <button class="seg" data-valor="acceptar">Acceptar-ho tot</button>
+        <button class="seg" data-valor="rebutjar">Rebutjar-ho tot</button>
+        <button class="seg" data-valor="res">No tocar-lo</button>
+      </div>
+      <small>Acceptar: s'emporten més coses, però falses (menys la IP). Rebutjar: legalment n'haurien de recollir menys.</small>
+    </div>
+
+    <div class="triador" data-clau="identificador">
+      <b>Cada quant canvia l'identificador fals</b>
+      <div class="segments">
+        <button class="seg" data-valor="visita">A cada visita</button>
+        <button class="seg" data-valor="clic">A cada clic</button>
+      </div>
+      <small>A cada clic, el web no et pot seguir ni dins d'una mateixa visita, però alguns webs fallen.</small>
+    </div>
+
+    <div class="triador" data-clau="disfressa">
+      <b>Disfressa</b>
+      <div class="segments">
+        <button class="seg" data-valor="web">Una per a cada web</button>
+        <button class="seg" data-valor="dia">Una al dia per a tots</button>
+      </div>
+      <small>Una per a cada web: cap web no pot lligar el que fas en un altre.</small>
+    </div>
+
+    <div class="triador" data-clau="pais">
+      <b>País de la disfressa</b>
+      <div class="segments">
+        <button class="seg" data-valor="ip">El de la teva IP</button>
+        <button class="seg" data-valor="qualsevol">Qualsevol</button>
+      </div>
+      <small id="paisAra">Si la disfressa no és del país de la IP, no lliga i fa més olor de disfressa.</small>
+    </div>
+
+    <div class="opcio destacada">
+      <div class="text"><b>Si la IP canvia de país</b>
+        <small>Per exemple, si encens una VPN: disfressa del país nou, i es menja totes les galetes, perquè el web no lligui l'abans i el després.</small></div>
+      <button class="inter" data-clau="canviPais"><span class="bola"></span></button>
+    </div>
+  </section>
+
+  <section>
+    <div class="titol-llista">Què falseja</div>
+    <div class="opcions" id="falseja"></div>
+  </section>
+
+  <section>
+    <div class="titol-llista">Webs de confiança (no s'hi menja res i no hi va disfressat)</div>
+    <ul id="confianca"></ul>
+    <form id="afegeix">
+      <input id="nouWeb" placeholder="per exemple, el-meu-banc.cat" autocomplete="off">
+      <button class="sec">Afegeix</button>
+    </form>
+    <p class="consell">Hi van els webs on et vols quedar la sessió. Els bancs i els webs amb contrasenya ja hi van sols (a sota).</p>
+  </section>
+
+  <section>
+    <div class="titol-llista">Sempre amb la teva identitat real (no es pot canviar)</div>
+    <p class="text-llarg">Els bancs, els pagaments i l'Administració veuen sempre el navegador de debò, i els webs que demanen una
+      contrasenya o una targeta també, a partir del primer cop que la demanen. Així els seus sistemes contra el frau i contra
+      els comptes robats continuen funcionant: Menja galetes és per a la intimitat, no per enganyar-los.</p>
+    <p class="text-llarg" id="sempreReal"></p>
+    <div class="titol-llista">Webs amb contrasenya o targeta (automàtic)</div>
+    <ul id="realAuto"></ul>
+  </section>
+</main>
+<script src="../lib/comu.js"></script>
+<script src="opcions.js"></script>
+</body>
+</html>

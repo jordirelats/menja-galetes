@@ -1,0 +1,27 @@
+/* Menja galetes · estils comuns de la finestreta i les opcions (els de les maquetes). */
+:root {
+  --fons: #EFE8DC; --paper: #FFFDF8; --masa: #F6E7CC; --xoco: #4A2C1A; --crosta: #B57A3A;
+  --text: #2B1B10; --suau: #7A6352; --verd: #2F7D4F; --verd-clar: #E3F1E7; --linia: #E7D9C2;
+  --groc: #FFF1D6; --groc-vora: #F0C877; --groc-text: #6B4A12; --vermell: #B5463A;
+}
+* { box-sizing: border-box; }
+body { margin: 0; font: 14px/1.4 system-ui, "Segoe UI", Roboto, sans-serif; color: var(--text); background: var(--paper); }
+code { font: 12px ui-monospace, monospace; background: #F1E6D4; padding: 0 3px; border-radius: 3px; }
+button { font: inherit; cursor: pointer; }
+.cap { display: flex; align-items: center; gap: 10px; padding: 12px 14px; background: var(--xoco); color: #FFF4E2; }
+.cap img { width: 30px; height: 30px; }
+.cap .nom { font-weight: 700; font-size: 16px; flex: 1; }
+.cap .engranatge { background: none; border: 0; color: #E8D5B8; font-size: 18px; padding: 0 4px; }
+.inter { width: 38px; height: 22px; border-radius: 11px; background: #C9B9A6; position: relative; flex: none; border: 0; padding: 0; }
+.inter .bola { position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: left .15s; }
+.inter.on { background: var(--verd); }
+.inter.on .bola { left: 19px; }
+.titol-llista { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--suau); font-weight: 700; padding: 10px 14px 4px; }
+.mitja { font-size: 18px; font-weight: 800; color: var(--xoco); line-height: 1.2; }
+.mitja.verd { color: var(--verd); }
+.sota { color: var(--suau); font-size: 13px; }
+button.pri { font-weight: 700; background: var(--xoco); border: 1.5px solid var(--xoco); color: #FFF4E2; padding: 7px 12px; border-radius: 8px; }
+button.sec { font-weight: 600; background: #fff; border: 1.5px solid var(--crosta); color: var(--xoco); padding: 7px 12px; border-radius: 8px; }
+.segments { display: flex; background: #F1E6D4; border-radius: 8px; padding: 3px; gap: 3px; }
+.seg { flex: 1; text-align: center; padding: 6px 4px; border-radius: 6px; font-size: 12.5px; font-weight: 600; color: var(--suau); background: none; border: 0; }
+.seg.on { background: #fff; color: var(--xoco); box-shadow: 0 1px 2px rgba(74,44,26,.2); }

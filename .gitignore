@@ -1,0 +1,10 @@
+# Només es puja el que és de l'extensió. Les notes de la carpeta (CLAUDE.md,
+# AGENTS.md) i les maquetes són d'ús propi i no surten mai d'aquest ordinador.
+/*
+!/.gitignore
+!/README.md
+!/LICENSE
+!/extensio/
+!/proves/
+/proves/captures/
+__pycache__/

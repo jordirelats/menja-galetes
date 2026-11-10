@@ -1,0 +1,42 @@
+{
+  "manifest_version": 2,
+  "name": "Menja galetes",
+  "short_name": "Menja galetes",
+  "version": "0.1.0",
+  "description": "Es menja la primera galeta abans que es desi, i et disfressa perquè els webs s'emportin dades falses.",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "menja-galetes@jordirelats",
+      "strict_min_version": "128.0",
+      "data_collection_permissions": { "required": ["none"] }
+    }
+  },
+  "permissions": [
+    "<all_urls>",
+    "alarms",
+    "browsingData",
+    "cookies",
+    "notifications",
+    "storage",
+    "tabs",
+    "webRequest",
+    "webRequestBlocking"
+  ],
+  "background": {
+    "scripts": ["lib/comu.js", "fons.js"],
+    "persistent": true
+  },
+  "browser_action": {
+    "default_title": "Menja galetes",
+    "default_popup": "finestreta/finestreta.html",
+    "default_icon": "icones/galeta.svg"
+  },
+  "options_ui": {
+    "page": "opcions/opcions.html",
+    "open_in_tab": true
+  },
+  "icons": {
+    "48": "icones/galeta.svg",
+    "96": "icones/galeta.svg"
+  }
+}
