@@ -44,6 +44,14 @@ La disfressa arriba també als llocs on els webs més espavilats van a buscar el
 
 ## Com instal·lar-la
 
+A la pàgina de [versions](https://github.com/jordirelats/menja-galetes/releases) hi ha dos paquets a punt, que serveixen per a Linux, Windows i Mac:
+- `menja-galetes-firefox-….zip`, per al Firefox.
+- `menja-galetes-chromium-….zip`, per al Chrome, el Vivaldi, el Brave i l'Edge.
+
+Si en fas servir un, salta't el pas de muntar-la, i on diu «la carpeta», tria la que surt en descomprimir el paquet (a Windows: botó dret → «Extreu-ho tot»). Al Firefox, pots triar el ZIP tal qual.
+
+Per fer-los: `python3 eines/fes-paquets.py` (els deixa a `construit/paquets/`).
+
 ### Al Firefox
 
 Mentre no estigui signada per Mozilla, s'instal·la com a complement temporal (s'esborra en tancar el Firefox):
