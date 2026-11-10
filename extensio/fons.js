@@ -436,9 +436,13 @@ async function comprovaPais() {
   let nou;
   try {
     const r = await fetch(cfg.urlPais, { cache: "no-store", credentials: "omit" });
-    const m = /^loc=([A-Z]{2})$/m.exec(await r.text());
+    const text = await r.text();
+    const m = /^loc=([A-Z]{2})$/m.exec(text);
     if (!m) return;
     nou = m[1];
+    // La IP de debò, per ensenyar-la a la finestreta. Només es desa en aquest ordinador.
+    const ip = (/^ip=([0-9a-fA-F.:]+)$/m.exec(text) || [])[1];
+    if (ip) await browser.storage.local.set({ ipReal: ip });
   } catch (e) {
     return;
   }
@@ -503,7 +507,9 @@ browser.runtime.onMessage.addListener(async (m, sender) => {
   }
   if (m.tipus === "estat") {
     const p = pestanyes.get(m.tabId) || {};
+    const { ipReal } = await browser.storage.local.get("ipReal");
     return {
+      ipReal: ipReal || null,
       cfg: perAPagina(),
       confiancaUsuari: cfg.confianca,
       realAuto: cfg.realAuto,

@@ -150,6 +150,7 @@ try {
   const fin = pag;
   const text = await c.avalua(fin, "document.body.innerText");
   comprova("la finestreta diu «Primera galeta: menjada»", text.includes("Primera galeta: menjada"), text.slice(0, 80).replace(/\n/g, " "));
+  comprova("la finestreta ensenya la IP de debò", text.includes("192.0.2.1"));
   await c.envia("Emulation.setDeviceMetricsOverride", { width: 400, height: 900, deviceScaleFactor: 1, mobile: false }, fin);
   await dorm(300);
   const alt = await c.avalua(fin, "document.documentElement.scrollHeight");

@@ -224,6 +224,8 @@ def main():
         (CAPTURES / "finestreta.png").write_bytes(base64.b64decode(png))
         text = m.js("return document.body.innerText;")
         comprova("la finestreta diu «Primera galeta: menjada»", "Primera galeta: menjada" in text)
+        comprova("la finestreta ensenya la IP de debò", "192.0.2.1" in text)
+        comprova("i els codis de l'empremta (fals i de debò)", text.count("·") >= 2 and "Empremta: el codi" in text)
         m.ves(f"moz-extension://{uuid}/opcions/opcions.html")
         time.sleep(0.8)
         png = m.captura_element("main")

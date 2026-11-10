@@ -24,6 +24,48 @@ function navegadorReal() {
   const m = marques.map((b) => b.brand).find((b) => !/Chromium|Not/i.test(b));
   return m ? m.replace("Google ", "") : "Vivaldi";
 }
+// L'empremta, com la treuria un web: dibuixa una imatge i en fa un codi. El de debò surt de la
+// imatge tal com la dibuixa el teu navegador; el fals, de la mateixa imatge amb el soroll que la
+// disfressa hi posa en aquest web (el mateix MG.sorolla que fa servir el codi de pàgina).
+function empremtes(d) {
+  try {
+    const c = document.createElement("canvas");
+    c.width = 240; c.height = 60;
+    const x = c.getContext("2d");
+    x.textBaseline = "top";
+    x.fillStyle = "#f60"; x.fillRect(100, 1, 62, 20);
+    x.fillStyle = "#069"; x.font = "15px Arial"; x.fillText("Menja galetes, 123 <canvas> 😀", 2, 15);
+    x.fillStyle = "rgba(102, 204, 0, 0.7)"; x.font = "18px Times"; x.fillText("Menja galetes, 123", 4, 36);
+    const dades = x.getImageData(0, 0, c.width, c.height).data;
+    const codi = (bytes) => {
+      let h = 2166136261;
+      for (let i = 0; i < bytes.length; i++) { h ^= bytes[i]; h = Math.imul(h, 16777619); }
+      const t = (h >>> 0).toString(16).padStart(8, "0");
+      return `${t.slice(0, 4)}·${t.slice(4)}`;
+    };
+    const real = codi(dades);
+    const falses = new Uint8ClampedArray(dades);
+    MG.sorolla(falses, falses.length, d.soroll + "|img");
+    return { real, falsa: codi(falses) };
+  } catch (e) {
+    return null;
+  }
+}
+
+// La targeta gràfica de debò, tal com la diu el navegador (escurçada).
+function graficaReal() {
+  try {
+    const gl = document.createElement("canvas").getContext("webgl");
+    const ext = gl && gl.getExtension("WEBGL_debug_renderer_info");
+    let r = ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : "";
+    r = String(r).replace(/^ANGLE \([^,]*,\s*/, "").replace(/\(R\)|\(TM\)/g, "").replace(/, or similar$/, "")
+      .replace(/\s*\(0x[0-9A-Fa-f]+\).*$/, "").replace(/ Direct3D.*$/, "").replace(/,? ?Unspecified Version\)?$/, "").trim();
+    return r ? (r.length > 22 ? r.slice(0, 21) + "…" : r) : "no la diu";
+  } catch (e) {
+    return "no la diu";
+  }
+}
+
 function sistemaReal() {
   const p = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || "";
   return /linux/i.test(p) ? "Linux" : /win/i.test(p) ? "Windows" : /mac/i.test(p) ? "macOS" : p;
@@ -135,16 +177,23 @@ async function pinta() {
   if (f.ubicacio) files.push(["Ubicació", d.ciutat, "amagada", ""]);
   if (f.idioma) files.push(["Idioma", MG.IDIOMES[d.idiomes[0].split("-")[0]] || d.idiomes[0], idiomaReal, ""]);
   if (f.pantalla) files.push(["Pantalla", `${d.pantalla.w} × ${d.pantalla.h}`, `${real.w} × ${real.h}`, ""]);
-  if (f.empremta) files.push(["Empremta", "inventada", "la teva", ""]);
-  if (f.ipScripts && d.ip) files.push(["IP scripts", `${d.ip} (de ningú)`, "la real", "ip"]);
+  if (f.pantalla) files.push(["Gràfica", d.gpu.nom, graficaReal(), ""]);
+  const emp = f.empremta ? empremtes(d) : null;
+  if (emp) files.push(["Empremta", emp.falsa, emp.real, ""]);
+  const ipReal = e.ipReal || "la real";
+  if (f.ipScripts && d.ip) files.push(["IP scripts", `${d.ip} (de ningú)`, ipReal, "ip"]);
   if (f.ipCapcaleres && d.ip) files.push(["IP capçal.", `${d.ip} (de ningú)`, "cap", "ip"]);
-  files.push(["IP connexió", "la real", "la real", "ip real"]);
+  files.push(["IP connexió", ipReal, "la mateixa", "ip real"]);
   const fitxa = h("div.fitxa", h("div.th", "Què"), h("div.th", "Es pensa"), h("div.th", "Veritat"));
   for (const [q, fals, ver, c] of files) {
     const cl = c ? "." + c.split(" ").join(".") : "";
     fitxa.append(h("div.q" + cl, q), h("div.fals" + cl, fals), h("div.ver" + cl, ver));
   }
   cos.append(fitxa);
+  if (emp) {
+    cos.append(h("div.nota", `Empremta: el codi que treu un web quan fa dibuixar una imatge al navegador. ` +
+      `Amb la disfressa, aquest web rep el ${emp.falsa}; sense, rebria el ${emp.real}, que és el teu.`));
+  }
   const p = MG.PAISOS[cfg.paisIP];
   cos.append(h("div.nota-ip", cfg.pais === "ip"
     ? `La IP de la connexió és la real. Per això la disfressa és ${p ? p.de : "del teu país"}, com la IP, però d'una altra ciutat.`

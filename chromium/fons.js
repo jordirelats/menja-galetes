@@ -292,9 +292,13 @@ async function comprovaPais() {
   let nou;
   try {
     const r = await fetch(cfg.urlPais, { cache: "no-store", credentials: "omit" });
-    const m = /^loc=([A-Z]{2})$/m.exec(await r.text());
+    const text = await r.text();
+    const m = /^loc=([A-Z]{2})$/m.exec(text);
     if (!m) return;
     nou = m[1];
+    // La IP de debò, per ensenyar-la a la finestreta. Només es desa en aquest ordinador.
+    const ip = (/^ip=([0-9a-fA-F.:]+)$/m.exec(text) || [])[1];
+    if (ip) await chrome.storage.local.set({ ipReal: ip });
   } catch (e) { return; }
   const { paisIP: vell } = await chrome.storage.local.get("paisIP");
   if (nou === vell) return;
@@ -342,7 +346,8 @@ async function tracta(m, sender) {
       // Si fins ara no es podia (l'interruptor «Permet els scripts d'usuari» era apagat), ho torna a provar.
       if (scriptsUsuari === false) await registra();
       const p = pestanyes.get(m.tabId) || {};
-      return { cfg: perAPagina(), confiancaUsuari: cfg.confianca, realAuto: cfg.realAuto, scriptsUsuari,
+      const { ipReal } = await chrome.storage.local.get("ipReal");
+      return { ipReal: ipReal || null, cfg: perAPagina(), confiancaUsuari: cfg.confianca, realAuto: cfg.realAuto, scriptsUsuari,
         lloc: p.lloc || m.lloc || "", galetes: p.galetes || [], funcionament: p.funcionament || [], avis: p.avis || null };
     }
     case "menjaAra": {
