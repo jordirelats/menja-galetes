@@ -16,7 +16,7 @@ DESTI.mkdir(parents=True)
 for nom in ("manifest.json", "fons.js", "pagina.js", "contingut.js"):
     shutil.copy2(ARREL / "chromium" / nom, DESTI / nom)
 (DESTI / "lib").mkdir()
-for nom in ("comu.js", "navegador.js"):
+for nom in ("comu.js", "navegador.js", "monstre.js"):
     shutil.copy2(ARREL / "extensio" / "lib" / nom, DESTI / "lib" / nom)
 shutil.copy2(ARREL / "extensio" / "comu.css", DESTI / "comu.css")
 for carpeta in ("finestreta", "opcions", "icones"):

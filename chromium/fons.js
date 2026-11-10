@@ -88,7 +88,7 @@ async function registra() {
 
 async function regles() {
   const params = MG.PARAMS_LLISTA;
-  const protegits = [...MG.SEMPRE_REAL, ...MG.ANTIFRAU];
+  const protegits = [...MG.SEMPRE_REAL, ...MG.ANTIFRAU, ...MG.SSO];
   // Fora els identificadors dels enllaços (fbclid, gclid, utm_…): una regla per paràmetre
   // («^» vol dir «després d'un ? o un &»), perquè un sol patró amb tots passa del límit.
   const enllacos = params.map((nom, i) => ({
@@ -140,12 +140,30 @@ function desaPestanyes() {
   desant = setTimeout(() => chrome.storage.session.set({ pestanyes: [...pestanyes] }), 150);
 }
 
+const estatBuit = (lloc) => ({ lloc, origens: [], galetes: [], funcionament: [], avis: null, pendent: null });
+
+// Quan la pestanya demana un web nou: encara no hi és (pot ser una baixada). Les galetes
+// d'aquesta càrrega s'apunten a part, a «pendent».
+function preparaPestanya(tabId, lloc, origen) {
+  let p = pestanyes.get(tabId);
+  if (!p) { p = estatBuit(""); pestanyes.set(tabId, p); }
+  p.pendent = p.lloc === lloc ? null : { lloc, origen, galetes: [], funcionament: [] };
+  chrome.alarms.clear("menja|" + lloc);
+  desaPestanyes();
+}
+
+// Quan la pàgina ja hi és: ara sí, el web d'abans ha marxat.
 function estatPestanya(tabId, lloc, origen) {
   let p = pestanyes.get(tabId);
   if (!p || p.lloc !== lloc) {
-    if (p && p.lloc) potserMenja(p.lloc);
-    p = { lloc, origens: [], galetes: [], funcionament: [], avis: null };
-    pestanyes.set(tabId, p);
+    const vell = p ? p.lloc : "";
+    const nou = estatBuit(lloc);
+    if (p && p.pendent && p.pendent.lloc === lloc) { nou.galetes = p.pendent.galetes; nou.funcionament = p.pendent.funcionament; }
+    pestanyes.set(tabId, nou);
+    p = nou;
+    if (vell) potserMenja(vell);
+  } else {
+    p.pendent = null;
   }
   if (origen && !p.origens.includes(origen)) p.origens.push(origen);
   chrome.alarms.clear("menja|" + lloc);
@@ -153,9 +171,17 @@ function estatPestanya(tabId, lloc, origen) {
   return p;
 }
 
-function anota(tabId, lloc, entrada) {
+function apuntDe(tabId, lloc) {
   const p = pestanyes.get(tabId);
-  if (!p || p.lloc !== lloc) return;
+  if (!p) return null;
+  if (p.lloc === lloc) return p;
+  if (p.pendent && p.pendent.lloc === lloc) return p.pendent;
+  return null;
+}
+
+function anota(tabId, lloc, entrada) {
+  const p = apuntDe(tabId, lloc);
+  if (!p) return;
   if (!p.galetes.some((g) => g.nom === entrada.nom && g.domini === entrada.domini)) {
     p.galetes.push(entrada);
     desaPestanyes();
@@ -188,7 +214,7 @@ async function menja(lloc, { obertes = false, protegides = false } = {}) {
       if (real) {
         const tercer = !!c.partitionKey || MG.lloc(c.domain) !== lloc;
         if (MG.esProtegitFrau(c.domain.replace(/^\./, "")) && !(MG.esSeguiment(c.name) && MG.lloc(c.domain) === lloc)) continue;
-        if (!tercer && !MG.esSeguiment(c.name)) continue;
+        if (!tercer && !MG.esSeguiment(c.name, lloc)) continue;
       }
       const det = { url: (c.secure ? "https://" : "http://") + c.domain.replace(/^\./, "") + c.path, name: c.name, storeId: c.storeId };
       if (c.partitionKey) det.partitionKey = c.partitionKey;
@@ -218,8 +244,10 @@ async function galetesResposta(det) {
   if (!cfg.actiu || !cfg.falseja.galetes || det.tabId < 0) return;
   const linies = (det.responseHeaders || []).filter((h) => h.name.toLowerCase() === "set-cookie").map((h) => h.value);
   if (!linies.length) return;
-  // El web de dalt és el de la pestanya (l'«initiator» pot ser un marc d'un altre web).
-  const hostSup = det.type === "main_frame" ? hostDe(det.url) : (pestanyes.get(det.tabId) || {}).lloc || hostDe(det.initiator || "");
+  // El web de dalt és el de la pestanya (l'«initiator» pot ser un marc d'un altre web); si
+  // s'està carregant un web nou, el que es carrega.
+  const pt = pestanyes.get(det.tabId) || {};
+  const hostSup = det.type === "main_frame" ? hostDe(det.url) : (pt.pendent && pt.pendent.lloc) || pt.lloc || hostDe(det.initiator || "");
   const llocSup = MG.lloc(hostSup);
   const host = hostDe(det.url);
   const llocReq = MG.lloc(host);
@@ -233,10 +261,10 @@ async function galetesResposta(det) {
     const nom = nv.slice(0, i).trim();
     const valor = nv.slice(i + 1).trim();
     if (attrs.some((a) => /^\s*max-age\s*=\s*(-|0\s*$)/i.test(a))) continue;
-    if (!MG.esSeguiment(nom)) {
+    if (!MG.esSeguiment(nom, hostSup)) {
       if (!real && llocReq === llocSup) {
-        const p = pestanyes.get(det.tabId);
-        if (p && p.lloc === llocSup && !p.funcionament.includes(nom)) { p.funcionament.push(nom); desaPestanyes(); }
+        const p = apuntDe(det.tabId, llocSup);
+        if (p && !p.funcionament.includes(nom)) { p.funcionament.push(nom); desaPestanyes(); }
       }
       continue;
     }
@@ -263,7 +291,7 @@ async function galetesResposta(det) {
 
 const marcant = new Set();
 async function marcaReal(lloc, tabId, recarrega) {
-  if (!lloc || confiat(lloc) || marcant.has(lloc)) return;
+  if (!lloc || /[^a-z0-9.\-]/i.test(lloc) || confiat(lloc) || marcant.has(lloc)) return;
   marcant.add(lloc);
   cfg.realAuto.push(lloc);
   await chrome.storage.local.set({ realAuto: cfg.realAuto });
@@ -279,7 +307,8 @@ async function marcaReal(lloc, tabId, recarrega) {
 async function detectaAntifrau(det) {
   await llest;
   if (!cfg.actiu || det.tabId < 0 || !MG.esAntifrau(hostDe(det.url))) return;
-  const hostSup = (pestanyes.get(det.tabId) || {}).lloc || hostDe(det.initiator || "");
+  const pt = pestanyes.get(det.tabId) || {};
+  const hostSup = (pt.pendent && pt.pendent.lloc) || pt.lloc || hostDe(det.initiator || "");
   const lloc = MG.lloc(hostSup);
   if (!lloc || esReal(hostSup)) return;
   marcaReal(lloc, det.tabId, true);
@@ -328,6 +357,32 @@ async function comprovaPais() {
   });
 }
 
+/* ---- «Menja-te-les totes ara»: l'hàmster i la recàrrega ---- */
+
+// L'hàmster travessa la pàgina (lib/monstre.js, al món aïllat). Si la pàgina no ho permet
+// (chrome://, la botiga, un PDF…) o triga massa, es passa de llarg.
+async function monstre(tabId, quantes) {
+  const target = { tabId, frameIds: [0] };
+  try {
+    await chrome.scripting.executeScript({ target, files: ["lib/monstre.js"] });
+    await Promise.race([
+      chrome.scripting.executeScript({ target, func: (n) => MG_monstre(n), args: [quantes | 0] }),
+      new Promise((r) => setTimeout(r, 9000)),
+    ]);
+  } catch (e) { /* res */ }
+}
+
+// Quan l'hàmster ha marxat, es torna a menjar el que el web hagi posat mentrestant i es torna a
+// carregar la pàgina amb la disfressa nova.
+async function acabaDeMenjar(tabId, lloc, quantes) {
+  await monstre(tabId, quantes);
+  await menja(lloc, { obertes: true, protegides: true });
+  const p = pestanyes.get(tabId);
+  if (p) { p.galetes = []; p.funcionament = []; p.avis = null; desaPestanyes(); }
+  await capcaleres(tabId, lloc);
+  chrome.tabs.reload(tabId);
+}
+
 /* ---- Missatges ---- */
 
 async function tracta(m, sender) {
@@ -347,7 +402,7 @@ async function tracta(m, sender) {
       return null;
     case "estat": {
       // Si fins ara no es podia (l'interruptor «Permet els scripts d'usuari» era apagat), ho torna a provar.
-      if (scriptsUsuari === false) await registra();
+      if (scriptsUsuari !== true) await registra();
       const p = pestanyes.get(m.tabId) || {};
       const { ipReal, coloReal } = await chrome.storage.local.get(["ipReal", "coloReal"]);
       return { ipReal: ipReal || null, coloReal: coloReal || null, cfg: perAPagina(), confiancaUsuari: cfg.confianca, realAuto: cfg.realAuto, scriptsUsuari,
@@ -361,7 +416,7 @@ async function tracta(m, sender) {
       const p = pestanyes.get(m.tabId);
       if (p) { p.galetes = []; p.funcionament = []; p.avis = null; desaPestanyes(); }
       await registra();
-      if (m.tabId >= 0) { await capcaleres(m.tabId, m.lloc); chrome.tabs.reload(m.tabId); }
+      if (m.tabId >= 0) acabaDeMenjar(m.tabId, m.lloc, n);   // sense esperar: la finestreta es tanca i surt l'hàmster
       return { menjades: n };
     }
     case "confia": {
@@ -394,7 +449,7 @@ async function primeraVegada() {
   let totes = [];
   try { totes = await chrome.cookies.getAll({}); } catch (e) { /* res */ }
   for (const c of totes) {
-    if (MG.esSeguiment(c.name) && !MG.esProtegitFrau(c.domain.replace(/^\./, ""))) {
+    if (MG.esSeguiment(c.name, c.domain.replace(/^\./, "")) && !MG.esProtegitFrau(c.domain.replace(/^\./, ""))) {
       const det = { url: (c.secure ? "https://" : "http://") + c.domain.replace(/^\./, "") + c.path, name: c.name, storeId: c.storeId };
       if (c.partitionKey) det.partitionKey = c.partitionKey;
       try { await chrome.cookies.remove(det); } catch (e) { /* res */ }
@@ -417,8 +472,9 @@ async function inicia() {
   await carregaConfig();
   const s = await chrome.storage.session.get(["pestanyes", "scriptsUsuari"]);
   if (s.pestanyes) pestanyes = new Map(s.pestanyes);
-  await registra();
-  await regles();
+  if (typeof s.scriptsUsuari === "boolean") scriptsUsuari = s.scriptsUsuari;
+  // Les regles i el script d'usuari es queden desats entre despertars: només es refan en
+  // instal·lar-la, en arrencar el navegador i quan canvia la configuració.
   if (!(await chrome.alarms.get("pais"))) chrome.alarms.create("pais", { periodInMinutes: cfg.minutsPais });
 }
 const llest = inicia();
@@ -427,7 +483,9 @@ const llest = inicia();
 
 chrome.runtime.onInstalled.addListener(async (d) => {
   await llest;
-  if (d.reason === "install") { await primeraVegada(); await carregaConfig(); await registra(); }
+  if (d.reason === "install") { await primeraVegada(); await carregaConfig(); }
+  await registra();
+  await regles();
   for (const t of await chrome.tabs.query({})) {
     const host = hostDe(t.url || "");
     if (host) { estatPestanya(t.id, MG.lloc(host), new URL(t.url).origin); await capcaleres(t.id, host); }
@@ -437,6 +495,8 @@ chrome.runtime.onInstalled.addListener(async (d) => {
 
 chrome.runtime.onStartup.addListener(async () => {
   await llest;
+  await registra();
+  await regles();
   pestanyes = new Map();
   for (const t of await chrome.tabs.query({})) {
     const host = hostDe(t.url || "");
@@ -450,8 +510,40 @@ chrome.webNavigation.onBeforeNavigate.addListener(async (det) => {
   if (det.frameId !== 0) return;
   await llest;
   const host = hostDe(det.url);
-  if (host) estatPestanya(det.tabId, MG.lloc(host), new URL(det.url).origin);
+  if (host) preparaPestanya(det.tabId, MG.lloc(host), new URL(det.url).origin);
   await capcaleres(det.tabId, host);
+});
+
+chrome.webNavigation.onCommitted.addListener(async (det) => {
+  if (det.frameId !== 0) return;
+  await llest;
+  const host = hostDe(det.url);
+  if (host) estatPestanya(det.tabId, MG.lloc(host), new URL(det.url).origin);
+});
+
+// Si la càrrega no arriba a ser una pàgina (una baixada, un error), la disfressa de les
+// capçaleres torna a ser la del web que hi ha.
+chrome.webNavigation.onErrorOccurred.addListener(async (det) => {
+  if (det.frameId !== 0) return;
+  await llest;
+  const p = pestanyes.get(det.tabId);
+  if (p) { p.pendent = null; desaPestanyes(); await capcaleres(det.tabId, p.lloc); }
+});
+
+// El Chromium de vegades canvia una pestanya per una altra (precàrrega, pestanyes adormides).
+chrome.tabs.onReplaced.addListener(async (nova, vella) => {
+  await llest;
+  const p = pestanyes.get(vella);
+  pestanyes.delete(vella);
+  try { await chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds: [vella + 1000] }); } catch (e) { /* res */ }
+  try {
+    const t = await chrome.tabs.get(nova);
+    const host = hostDe(t.url || "");
+    if (p) pestanyes.set(nova, p);
+    else if (host) estatPestanya(nova, MG.lloc(host), new URL(t.url).origin);
+    desaPestanyes();
+    await capcaleres(nova, host);
+  } catch (e) { /* res */ }
 });
 
 chrome.tabs.onUpdated.addListener(async (tabId, canvi) => {

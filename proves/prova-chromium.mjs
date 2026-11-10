@@ -49,7 +49,7 @@ const nav = spawn(binari, ["--headless=new", "--disable-gpu", "--no-first-run", 
   ...(ambChrome ? ["--enable-unsafe-extension-debugging"] : [`--load-extension=${EXT}`]),
   `--user-data-dir=${perfil}`, `--remote-debugging-port=${PORT}`,
   "--disable-features=HttpsUpgrades,HttpsFirstBalancedModeAutoEnable",
-  "--host-resolver-rules=MAP diari.test 127.0.0.1, MAP www.bancprova.test 127.0.0.1, MAP www.prova.gob.es 127.0.0.1, MAP botiga.test 127.0.0.1, MAP h.online-metrix.net 127.0.0.1",
+  "--host-resolver-rules=MAP diari.test 127.0.0.1, MAP www.bancprova.test 127.0.0.1, MAP www.prova.gob.es 127.0.0.1, MAP botiga.test 127.0.0.1, MAP h.online-metrix.net 127.0.0.1, MAP revista.test 127.0.0.1, MAP amagat.test 127.0.0.1",
   "about:blank"], { stdio: "ignore" });
 
 let c;
@@ -226,6 +226,43 @@ try {
   await ves("http://botiga.test:8765/antifrau", 3500);
   const e = await info();
   comprova("una botiga amb sistema contra el frau: navegador de debò", /Linux/.test(e.userAgent), e.userAgent);
+
+  // ---- 11. Les correccions de la revisió del 10/11/2026 ----
+  console.log("\n11. Les correccions de la revisió");
+  await ves("http://revista.test:8765/marc-entrada", 4000);
+  const r11 = await info();
+  comprova("marc d'un altre web amb contrasenya i sense «referrer»: cap bucle de recàrregues", r11.carrega <= 2, `càrregues ${r11.carrega}`);
+  const ra = JSON.parse(await alFons("JSON.stringify(cfg.realAuto)"));
+  comprova("i a la llista automàtica no hi ha cap «atzar:»", !ra.some((x) => x.includes("atzar")), ra.join(", "));
+  await ves("http://diari.test:8765/simple?plataforma=1", 1200);
+  const tabDiari = await alFons(`chrome.tabs.query({}).then(ts => ts.find(t => (t.url || "").includes("diari.test")).id)`);
+  await aPagina("location.href = 'http://amagat.test:8765/res'");
+  await dorm(1500);
+  const llocAra = await alFons(`(pestanyes.get(${tabDiari}) || {}).lloc`);
+  comprova("una baixada (resposta 204): la pestanya continua essent del diari", llocAra === "diari.test", llocAra);
+  const uaAra = await aPagina("fetch('/eco').then(r => r.json()).then(e => e['User-Agent'] || e['user-agent'])");
+  comprova("i les capçaleres continuen essent les de la disfressa del diari", !/Linux/.test(uaAra), uaAra);
+  gs = await galetes();
+  const uid = gs.find((g) => g.name === "UID" && g.domain === "diari.test");
+  comprova("UID (un nom genèric) no es toca", uid && uid.value === "uid-real-1", uid && uid.value);
+
+  // ---- 12. L'hàmster ----
+  console.log("\n12. «Menja-te-les totes ara»: l'hàmster");
+  await ves("http://diari.test:8765/simple", 1200);
+  await aPagina("document.body.dataset.abans = '1'");
+  const tab12 = await alFons(`chrome.tabs.query({}).then(ts => ts.find(t => (t.url || "").includes("diari.test")).id)`);
+  const resp12 = await alFons(`tracta({tipus: "menjaAra", lloc: "diari.test", tabId: ${tab12}}, {}).then(JSON.stringify)`);
+  let vist = false;
+  for (let i = 0; i < 30 && !vist; i++) { vist = await aPagina("!!document.getElementById('menja-galetes-monstre')"); if (!vist) await dorm(100); }
+  comprova("surt l'hàmster", vist, resp12);
+  await dorm(1600);
+  writeFileSync(join(AQUI, "captures", "monstre-vivaldi.png"), Buffer.from((await c.envia("Page.captureScreenshot", { format: "png" }, pag)).data, "base64"));
+  let recarregada = false;
+  for (let i = 0; i < 50 && !recarregada; i++) {
+    await dorm(250);
+    try { recarregada = await aPagina("!!document.body && !document.body.dataset.abans && !document.getElementById('menja-galetes-monstre')"); } catch (e) { /* recarregant */ }
+  }
+  comprova("quan marxa, la pàgina es torna a carregar (i l'hàmster ja no hi és)", recarregada);
 } catch (err) {
   console.log("ERROR:", err.message);
   resultats.push(false);

@@ -90,4 +90,12 @@ document.getElementById("afegeix").onsubmit = (ev) => {
   camp.value = "";
 };
 
+// Al Vivaldi, el Chrome i el Brave, «a cada clic» només canvia el que llegeix JavaScript: les
+// regles del Chromium no poden posar un valor diferent a cada petició.
+if (!/Firefox\//.test(navigator.userAgent)) {
+  const nota = document.querySelector("[data-clau='identificador'] small");
+  if (nota) nota.textContent += " En aquest navegador, a cada clic només canvia el que llegeix JavaScript; " +
+    "les peticions porten el fals de la visita.";
+}
+
 carrega();

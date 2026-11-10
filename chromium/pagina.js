@@ -32,9 +32,10 @@ function MG_pagina(MG, cfg) {
       try { hostSuperior = new URL(ancestre || document.referrer).hostname; } catch (e3) { hostSuperior = llocSuperior; }
     }
   }
-  if (!llocSuperior) llocSuperior = "atzar:" + MG.aleatori(1e9);
+  const desconegut = !llocSuperior;   // no se sap quin és el web de dalt: sense disfressa
+  if (desconegut) llocSuperior = "atzar:" + MG.aleatori(1e9);
   const usuari = (cfg.confianca || []).some((w) => MG.lloc(w) === llocSuperior);
-  const real = usuari || MG.esIdentitatReal(hostSuperior) || (cfg.realAuto || []).includes(llocSuperior);
+  const real = desconegut || usuari || MG.esIdentitatReal(hostSuperior) || (cfg.realAuto || []).includes(llocSuperior);
   if (real && MG.esProtegitFrau(location.hostname) && location.hostname !== hostSuperior) return;
 
   const f = cfg.falseja;
@@ -57,8 +58,12 @@ function MG_pagina(MG, cfg) {
     try { clau = win.Navigator.prototype; } catch (e) { return; }   // un marc d'un altre origen
     if (!clau || fetes.has(clau)) return;
     fetes.add(clau);
+    // La marca (un símbol registrat) es veu des dels scripts de tots els marcs: si un altre ja
+    // hi ha passat, no ho tornem a fer.
     try {
-      if (!real && f.navegador && win.navigator.platform === d.platform && navigator.platform !== d.platform) return;
+      const marca = Symbol.for(MG.MARCA);
+      if (win.Document.prototype[marca]) return;
+      Object.defineProperty(win.Document.prototype, marca, { value: true, configurable: true });
     } catch (e) { return; }
     galetesJS(win);
     if (!real) resta(win);
@@ -82,7 +87,7 @@ function MG_pagina(MG, cfg) {
       const i = tros.indexOf("=");
       if (i < 0) return tros;
       const nom = tros.slice(0, i).trim();
-      return MG.esSeguiment(nom) ? ` ${nom}=${MG.galetaFalsa(nom, tros.slice(i + 1).trim())}` : tros;
+      return MG.esSeguiment(nom, hostSuperior) ? ` ${nom}=${MG.galetaFalsa(nom, tros.slice(i + 1).trim())}` : tros;
     }).join(";").trim();
     if (original && original.set) {
       Object.defineProperty(DP, "cookie", {
@@ -97,7 +102,7 @@ function MG_pagina(MG, cfg) {
           const [nv, ...attrs] = valor.split(";");
           const i = nv.indexOf("=");
           const nom = i > 0 ? nv.slice(0, i).trim() : "";
-          if (!nom || !MG.esSeguiment(nom) || esborra(attrs)) return original.set.call(this, valor);
+          if (!nom || !MG.esSeguiment(nom, hostSuperior) || esborra(attrs)) return original.set.call(this, valor);
           const vell = nv.slice(i + 1).trim();
           const existent = llegeix(original.get.call(this), nom);
           const fals = existent || MG.galetaFalsa(nom, vell);
@@ -114,7 +119,7 @@ function MG_pagina(MG, cfg) {
         CS.set = function (a, b) {
           try {
             const opc = typeof a === "string" ? { name: a, value: b } : Object.assign({}, a);
-            if (opc && opc.name && MG.esSeguiment(opc.name)) {
+            if (opc && opc.name && MG.esSeguiment(opc.name, hostSuperior)) {
               const fals = MG.galetaFalsa(opc.name, opc.value);
               avisa({ tipus: "galeta", via: "js", lloc: llocSuperior, nom: opc.name, original: opc.value, fals });
               delete opc.expires;

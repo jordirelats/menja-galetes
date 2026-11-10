@@ -87,11 +87,26 @@ def prova_llista_fixa():
     ;const xarxes = {"www.instagram.com": true, "web.whatsapp.com": true, "www.tiktok.com": true, "www.roblox.com": true,
       "tinder.com": true, "www.lavanguardia.com": false};
     for (const [h, esperat] of Object.entries(xarxes)) console.log("xarxa:" + h, MG.esIdentitatReal(h) === esperat ? "OK" : "FALLA");
-    for (const h of ["www.facebook.com", "www.instagram.com"]) console.log("no-protegit:" + h, MG.esProtegitFrau(h) ? "FALLA" : "OK");"""
+    for (const h of ["www.facebook.com", "www.instagram.com"]) console.log("no-protegit:" + h, MG.esProtegitFrau(h) ? "FALLA" : "OK");
+    const iguals = {
+      "lloc:a.github.io": [MG.lloc("a.github.io"), "a.github.io"],
+      "lloc:www.servicos.gov.br": [MG.lloc("www.servicos.gov.br"), "servicos.gov.br"],
+      "lloc:x.y.blogspot.com": [MG.lloc("x.y.blogspot.com"), "y.blogspot.com"],
+      "lloc:www.bbc.co.uk": [MG.lloc("www.bbc.co.uk"), "bbc.co.uk"],
+      "netejaUrl:codificació": [MG.netejaUrl("https://x.test/p?q=a%20b+c&utm_source=x&fbclid=1&n=%C3%A0#h"), "https://x.test/p?q=a%20b+c&n=%C3%A0#h"],
+      "netejaUrl:sense res a treure": [MG.netejaUrl("https://x.test/p?id=5"), null],
+      "seguiment:UID": [MG.esSeguiment("UID", "diari.test"), false],
+      "seguiment:datr a instagram": [MG.esSeguiment("datr", "www.instagram.com"), false],
+      "seguiment:datr a un diari": [MG.esSeguiment("datr", "diari.test"), true],
+      "seguiment:bcookie a linkedin": [MG.esSeguiment("bcookie", "www.linkedin.com"), false],
+      "seguiment:_ga a instagram": [MG.esSeguiment("_ga", "www.instagram.com"), true],
+    };
+    for (const [nom, [es, esperat]] of Object.entries(iguals))
+      console.log("unitat:" + nom, es === esperat ? "OK" : "FALLA(" + JSON.stringify(es) + ")");"""
     sortida = subprocess.run(["node", "-e", codi], capture_output=True, text=True).stdout.split("\n")
     for l in filter(None, sortida):
         host, r = l.rsplit(" ", 1)
-        comprova(f"llista fixa: {host}", r == "OK")
+        comprova(f"peces comunes: {host}", r == "OK", "" if r == "OK" else r)
 
 
 def main():
@@ -114,7 +129,7 @@ def main():
         'user_pref("intl.accept_languages", "ca,es,en");',
         # Noms de prova que van al servidor local (no surt res a internet)
         'user_pref("network.dns.localDomains", "diari.test,www.bancprova.test,www.prova.gob.es,botiga.test,'
-        'h.online-metrix.net,empresa.test,www.instagram.com");',
+        'h.online-metrix.net,empresa.test,www.instagram.com,revista.test,amagat.test");',
     ]))
     env = dict(os.environ, MOZ_HEADLESS="1")
     ff = subprocess.Popen(["firefox", "--headless", "--marionette", "-remote-allow-system-access", "--no-remote", "--profile", str(perfil)],
@@ -367,6 +382,71 @@ def main():
         g = simple("http://empresa.test:8765/simple")
         comprova("certificat d'un banc: navegador de debò ja a la primera", "Linux" in g.get("userAgent", "") and g.get("carrega") == 1,
                  f"{g.get('userAgent')} · càrregues: {g.get('carrega')}")
+
+        # ---- 11. Les correccions de la revisió del 10/11/2026 ----
+        print("\n11. Les correccions de la revisió")
+        m.ves("http://revista.test:8765/marc-entrada")
+        time.sleep(4)
+        r = info_pagina(m)
+        comprova("marc d'un altre web amb contrasenya i sense «referrer»: cap bucle de recàrregues", r.get("carrega", 99) <= 2,
+                 f"càrregues: {r.get('carrega')}")
+        m.ves(f"moz-extension://{uuid}/opcions/opcions.html")
+        ra = json.loads(m.js_async("const f = arguments[arguments.length-1]; (window.wrappedJSObject||window).browser.storage.local"
+                                   ".get('realAuto').then(s => f(JSON.stringify(s.realAuto || [])))"))
+        comprova("i a la llista automàtica no hi ha cap «atzar:»", not any("atzar" in x for x in ra), ", ".join(ra))
+        simple("http://diari.test:8765/simple?plataforma=1")
+        m.js("location.href = 'http://amagat.test:8765/res'; return 1;")
+        time.sleep(4.5)                                # retardMenjar és 2 s a les proves
+        gs = galetes(m)
+        ses = [g for g in gs if g["name"] == "sessio" and "diari.test" in g["host"]]
+        comprova("una baixada (resposta 204) no fa menjar les galetes del web obert", ses and ses[0]["value"] == "banc123",
+                 ses and ses[0]["value"])
+        uid = [g for g in gs if g["name"] == "UID" and "diari.test" in g["host"]]
+        comprova("UID (un nom genèric) no es toca", uid and uid[0]["value"] == "uid-real-1", uid and uid[0]["value"])
+        simple("http://www.instagram.com:8765/simple?plataforma=1")
+        gs = galetes(m)
+        datr = [g for g in gs if g["name"] == "datr" and "instagram" in g["host"]]
+        comprova("datr (contra els comptes falsos) a la mateixa xarxa, tal qual", datr and datr[0]["value"] == "DATRREAL123",
+                 datr and datr[0]["value"])
+
+        # ---- 12. L'hàmster ----
+        print("\n12. «Menja-te-les totes ara»: l'hàmster")
+        simple("http://diari.test:8765/simple")
+        m.js("document.body.dataset.abans = '1'; return 1;")
+        diari = m.ordre("WebDriver:GetWindowHandle")
+        diari = diari["value"] if isinstance(diari, dict) else diari
+        m.pestanya_nova()
+        m.ves(f"moz-extension://{uuid}/opcions/opcions.html")
+        resp = m.js_async("""
+          const f = arguments[arguments.length - 1];
+          const b = (window.wrappedJSObject || window).browser;
+          b.tabs.query({}).then(ts => {
+            const t = ts.find(t => (t.url || "").includes("diari.test"));
+            return b.runtime.sendMessage({tipus: "menjaAra", lloc: "diari.test", tabId: t.id});
+          }).then(r => f(JSON.stringify(r)), e => f("error " + e));""")
+        m.tanca()
+        m.canvia(diari)
+        vist = False
+        for _ in range(30):
+            if m.js("return !!document.getElementById('menja-galetes-monstre');"):
+                vist = True
+                break
+            time.sleep(0.1)
+        comprova("surt l'hàmster", vist, resp)
+        time.sleep(1.6)
+        (CAPTURES / "monstre.png").write_bytes(base64.b64decode(m.captura()))
+        time.sleep(3.2)
+        (CAPTURES / "monstre-bombolla.png").write_bytes(base64.b64decode(m.captura()))
+        recarregada = False
+        for _ in range(40):
+            time.sleep(0.25)
+            try:
+                if m.js("return document.body && !document.body.dataset.abans && !document.getElementById('menja-galetes-monstre');"):
+                    recarregada = True
+                    break
+            except Exception:
+                pass
+        comprova("quan marxa, la pàgina es torna a carregar (i l'hàmster ja no hi és)", recarregada)
     finally:
         try:
             ff.terminate()

@@ -12,6 +12,9 @@
 /antifrau una botiga que carrega un sistema contra el frau.
 /simple   una pàgina que només diu el navegador i quantes vegades s'ha carregat.
 /pais     com cloudflare.com/cdn-cgi/trace: «loc=ES». /pais?posa=DE el canvia.
+/marc-entrada  un web amb un marc d'un altre web, sense «referrer», que té una contrasenya.
+/res      una resposta 204 (com una baixada: la pestanya es queda on era).
+/simple?plataforma=1  a més, datr (de Facebook) i UID (un nom genèric).
 """
 import json
 import threading
@@ -164,8 +167,15 @@ class Gestor(BaseHTTPRequestHandler):
         elif u.path == "/simple":
             origen = "localhost" if q.get("marc", [""])[0] == "localhost" else "diari.test"
             marc = f'<iframe src="http://{origen}:8765/tercer"></iframe>' if "marc" in q else ""
+            extra = ["datr=DATRREAL123; Max-Age=63072000; Path=/", "UID=uid-real-1; Max-Age=63072000; Path=/"] \
+                if "plataforma" in q else []
             self._envia(SIMPLE % marc, galetes=["_ga=GA1.1.111111111.1700000000; Max-Age=63072000; Path=/",
-                                                "sessio=banc123; Max-Age=86400; Path=/"])
+                                                "sessio=banc123; Max-Age=86400; Path=/", *extra])
+        elif u.path == "/marc-entrada":
+            self._envia(SIMPLE % '<iframe src="http://amagat.test:8765/entrada" referrerpolicy="no-referrer"></iframe>')
+        elif u.path == "/res":
+            self.send_response(204)
+            self.end_headers()
         elif u.path == "/avis":
             self._envia(AVIS)
         elif u.path == "/eco":

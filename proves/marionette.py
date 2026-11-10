@@ -85,3 +85,7 @@ class Marionette:
         el = self.ordre("WebDriver:FindElement", {"using": "css selector", "value": selector})
         ref = el[ELEMENT] if ELEMENT in el else list(el.values())[0]
         return self.ordre("WebDriver:TakeScreenshot", {"id": ref, "full": False})
+
+    def captura(self):
+        """Una captura del que es veu a la pestanya (base64)."""
+        return self.ordre("WebDriver:TakeScreenshot", {"full": False})

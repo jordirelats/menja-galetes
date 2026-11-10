@@ -40,6 +40,13 @@ MG.SEGON_NIVELL = new Set([
   "com.br", "com.ar", "com.mx", "co.jp", "ne.jp", "or.jp", "co.za", "co.nz",
   "com.es", "org.es", "gob.es", "nom.es", "edu.es", "com.pt", "com.tr", "co.in",
   "com.cn", "com.co", "com.pe", "com.uy", "com.ve", "co.kr", "com.sg",
+  "gov.br", "gob.mx", "gob.ar", "gov.ar", "com.ua", "co.il", "org.il", "ac.jp", "go.jp", "gov.au", "edu.au",
+  "com.hk", "com.tw", "co.th", "com.my", "com.ph", "gov.in", "ac.in", "co.id", "go.id", "com.vn", "com.pl",
+  "org.pl", "co.at", "or.at", "com.gr", "gov.it", "gouv.fr", "gov.pt", "gob.pe", "gob.cl", "gov.co", "gub.uy",
+  // Plataformes on cada usuari té el seu propi web (a.github.io i b.github.io són webs diferents)
+  "github.io", "gitlab.io", "blogspot.com", "netlify.app", "vercel.app", "pages.dev", "workers.dev",
+  "herokuapp.com", "appspot.com", "web.app", "firebaseapp.com", "azurewebsites.net", "cloudfront.net",
+  "wordpress.com", "wixsite.com", "neocities.org", "glitch.me", "onrender.com", "fly.dev", "repl.co",
 ]);
 
 MG.lloc = function (host) {
@@ -141,24 +148,33 @@ MG.esAntifrau = (host) => { const l = MG.lloc(host); return MG.ANTIFRAU.some((s)
 
 // Identificadors que viatgen dins dels enllaços (galetes que no són galetes): els clics
 // d'anuncis i de xarxes socials, i les campanyes.
-MG.PARAMS_SEGUIMENT = /^(fbclid|gclid|gbraid|wbraid|dclid|gclsrc|msclkid|yclid|twclid|ttclid|li_fat_id|igshid|igsh|epik|mc_eid|_hsenc|_hsmi|__hssc|__hstc|__hsfp|hsCtaTracking|mkt_tok|vero_id|oly_anon_id|oly_enc_id|rb_clickid|_openstat|s_cid|ef_id|scid|irclickid|wickedid|srsltid|utm_[a-z_]+)$/i;
+MG.PARAMS_SEGUIMENT = /^(fbclid|gclid|gbraid|wbraid|dclid|gclsrc|msclkid|yclid|twclid|ttclid|li_fat_id|igshid|igsh|epik|mc_eid|_hsenc|_hsmi|__hssc|__hstc|__hsfp|hsCtaTracking|mkt_tok|vero_id|oly_anon_id|oly_enc_id|rb_clickid|_openstat|s_cid|ef_id|irclickid|wickedid|srsltid|utm_[a-z_]+)$/i;
 
 // La mateixa llista amb noms exactes (les regles del Chromium no admeten patrons).
 MG.PARAMS_LLISTA = ["fbclid", "gclid", "gbraid", "wbraid", "dclid", "gclsrc", "msclkid", "yclid", "twclid", "ttclid",
   "li_fat_id", "igshid", "igsh", "epik", "mc_eid", "_hsenc", "_hsmi", "__hssc", "__hstc", "__hsfp", "hsCtaTracking",
-  "mkt_tok", "vero_id", "oly_anon_id", "oly_enc_id", "rb_clickid", "_openstat", "s_cid", "ef_id", "scid", "irclickid",
+  "mkt_tok", "vero_id", "oly_anon_id", "oly_enc_id", "rb_clickid", "_openstat", "s_cid", "ef_id", "irclickid",
   "wickedid", "srsltid", "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content", "utm_id", "utm_name",
   "utm_cid", "utm_reader", "utm_social", "utm_brand", "utm_place", "utm_pubreferrer", "utm_swu", "utm_viz_id"];
 
 // Treu-los d'una adreça. Torna null si no n'hi havia cap.
+// Es treuen del text de l'adreça tal com és: la resta de paràmetres no es tornen a codificar
+// (una adreça signada continua valent, i «?a» no passa a ser «?a=»).
 MG.netejaUrl = function (url) {
-  let u;
-  try { u = new URL(url); } catch (e) { return null; }
-  let canvi = false;
-  for (const k of [...u.searchParams.keys()]) {
-    if (MG.PARAMS_SEGUIMENT.test(k)) { u.searchParams.delete(k); canvi = true; }
-  }
-  return canvi ? u.href : null;
+  const h = url.indexOf("#");
+  const sense = h < 0 ? url : url.slice(0, h);
+  const fragment = h < 0 ? "" : url.slice(h);
+  const q = sense.indexOf("?");
+  if (q < 0) return null;
+  const parells = sense.slice(q + 1).split("&");
+  const queden = parells.filter((p) => {
+    const nom = p.split("=")[0];
+    let clau = nom;
+    try { clau = decodeURIComponent(nom.replace(/\+/g, " ")); } catch (e) { /* tal qual */ }
+    return !MG.PARAMS_SEGUIMENT.test(clau);
+  });
+  if (queden.length === parells.length) return null;
+  return sense.slice(0, q) + (queden.length ? "?" + queden.join("&") : "") + fragment;
 };
 
 // Xarxes socials, missatgeria, cites i plataformes on hi ha menors: s'hi va amb la identitat
@@ -181,9 +197,17 @@ MG.esXarxa = (host) => { const l = MG.lloc(host); return MG.XARXES.some((s) => l
 // Webs on es va sense disfressa: bancs, pagaments, governs, i xarxes i cites.
 MG.esIdentitatReal = (host) => MG.esSempreReal(host) || MG.esXarxa(host);
 
+// Entrada única (SSO): els proveïdors d'identitat que els webs fan servir dins de marcs per
+// mantenir la sessió (Teams, Microsoft 365, Google, Apple, Okta…). Les seves galetes no es treuen.
+MG.SSO = ["microsoftonline.com", "microsoftonline-p.com", "live.com", "windows.net", "msauth.net", "msftauth.net",
+  "accounts.google.com", "appleid.apple.com", "okta.com", "oktacdn.com", "auth0.com", "onelogin.com",
+  "duosecurity.com", "pingidentity.com", "id.me", "login.gov"];
+
 // Galetes que no es toquen mai, ni als bancs: les dels bancs, pagaments, governs i sistemes
 // contra el frau (encara que vinguin d'un altre web).
 MG.esProtegitFrau = (host) => MG.esSempreReal(host) || MG.esAntifrau(host);
+
+MG.MARCA = "menja-galetes";
 
 MG.esConfiat = function (lloc, llista) {
   if (!lloc) return false;
@@ -248,12 +272,22 @@ MG.SEGUIMENT = [
   /^_pk_id\./, /^_shopify_y$/, /^visitor_id\d*$/, /^_vwo_uuid/, /^optimizelyEndUserId$/,
   /^s_ecid$/, /^AMCV_/, /^s_vi$/, /^_sp_id\./, /^_lr_env/, /^_parsely_visitor$/,
   /^muc_ads$/, /^personalization_id$/, /^guest_id(_ads|_marketing)?$/, /^_derived_epik$/,
-  /^li_sugr$/, /^bcookie$/, /^UID$/, /^XANDR_PANID$/, /^uuid2$/, /^anj$/, /^tuuid/,
+  /^li_sugr$/, /^bcookie$/, /^XANDR_PANID$/, /^uuid2$/, /^anj$/, /^tuuid/,
   /^__adroll/, /^_au_1d$/, /^_lc2_fpi/, /^_tt_enable_cookie$/, /^_pinterest_ct_ua$/,
   /^VISITOR_INFO1_LIVE$/,   // l'identificador de visitant de YouTube
+  /^datr$/,                 // el de Facebook (a facebook.com mateix no compta: vegeu ID_PLATAFORMA)
 ];
 
-MG.esSeguiment = function (nom) {
+// Els que una xarxa social fa servir per reconèixer el navegador contra els comptes falsos i
+// l'abús. A la mateixa xarxa es deixen estar (hi vas amb la identitat real); a altres webs, són
+// galetes de seguiment com les altres.
+MG.ID_PLATAFORMA = [/^bcookie$/, /^bscookie$/, /^li_sugr$/, /^guest_id(_ads|_marketing)?$/, /^personalization_id$/,
+  /^muc_ads$/, /^_pin_unauth$/, /^datr$/, /^sb$/];
+
+// És una galeta de seguiment? Si es diu en quin web és (hostSup), a les xarxes socials no
+// compten els seus identificadors propis.
+MG.esSeguiment = function (nom, hostSup) {
+  if (hostSup && MG.esXarxa && MG.esXarxa(hostSup) && MG.ID_PLATAFORMA.some((r) => r.test(nom))) return false;
   return MG.SEGUIMENT.some((r) => r.test(nom));
 };
 
