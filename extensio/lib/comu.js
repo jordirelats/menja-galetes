@@ -24,7 +24,7 @@ MG.PER_DEFECTE = {
   // «google.com» inclou mail.google.com.
   confianca: [
     "google.com", "google.es", "youtube.com", "github.com",
-    "claude.ai", "anthropic.com", "mozilla.org", "firefox.com",
+    "claude.ai", "anthropic.com", "mozilla.org", "firefox.com", "vivaldi.com", "vivaldi.net",
   ],
   retardMenjar: 20,          // segons que espera després de tancar l'última pestanya d'un web
   minutsPais: 3,             // cada quant mira per quin país surt la connexió

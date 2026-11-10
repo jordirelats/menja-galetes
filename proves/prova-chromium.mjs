@@ -37,9 +37,17 @@ const id = idDe(realpathSync(EXT));
 mkdirSync(join(perfil, "Default"));
 // L'interruptor «Permet els scripts d'usuari», ja encès (al teu Vivaldi l'has d'encendre tu).
 writeFileSync(join(perfil, "Default", "Preferences"), JSON.stringify({ extensions: { ui: { developer_mode: true }, settings: { [id]: { user_scripts_enabled: true } } } }));
-const vivaldi = realpathSync(execFileSync("sh", ["-c", "command -v vivaldi"]).toString().trim()).replace(/vivaldi$/, "vivaldi-bin");
-const nav = spawn(vivaldi, ["--headless=new", "--disable-gpu", "--no-first-run", "--no-default-browser-check",
-  `--user-data-dir=${perfil}`, `--remote-debugging-port=${PORT}`, `--load-extension=${EXT}`,
+// Per defecte, el Vivaldi. Amb NAVEGADOR=chrome, el Google Chrome.
+const ambChrome = process.env.NAVEGADOR === "chrome";
+const binari = ambChrome
+  ? realpathSync(execFileSync("sh", ["-c", "command -v google-chrome"]).toString().trim())
+  : realpathSync(execFileSync("sh", ["-c", "command -v vivaldi"]).toString().trim()).replace(/vivaldi$/, "vivaldi-bin");
+console.log("Navegador:", binari);
+const nav = spawn(binari, ["--headless=new", "--disable-gpu", "--no-first-run", "--no-default-browser-check",
+  // El Chrome (des de la 137) ja no carrega extensions des de la línia d'ordres: es carrega amb
+  // l'ordre Extensions.loadUnpacked del protocol, que demana aquest permís.
+  ...(ambChrome ? ["--enable-unsafe-extension-debugging"] : [`--load-extension=${EXT}`]),
+  `--user-data-dir=${perfil}`, `--remote-debugging-port=${PORT}`,
   "--disable-features=HttpsUpgrades,HttpsFirstBalancedModeAutoEnable",
   "--host-resolver-rules=MAP diari.test 127.0.0.1, MAP www.bancprova.test 127.0.0.1, MAP www.prova.gob.es 127.0.0.1, MAP botiga.test 127.0.0.1, MAP h.online-metrix.net 127.0.0.1",
   "about:blank"], { stdio: "ignore" });
@@ -49,6 +57,7 @@ try {
   let v;
   for (let i = 0; i < 60 && !v; i++) { await dorm(500); try { v = await (await fetch(`http://127.0.0.1:${PORT}/json/version`)).json(); } catch (e) { /* encara no */ } }
   c = await CDP.connecta(v.webSocketDebuggerUrl);
+  if (ambChrome) console.log("Carregada:", JSON.stringify(await c.envia("Extensions.loadUnpacked", { path: EXT })));
   let sw;
   for (let i = 0; i < 20 && !sw; i++) { await dorm(500); sw = (await c.objectius()).find((t) => t.type === "service_worker" && t.url.startsWith(`chrome-extension://${id}/`)); }
   if (!sw) throw new Error("no trobo el fons de l'extensió " + id);

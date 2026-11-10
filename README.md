@@ -22,7 +22,7 @@ La disfressa arriba també als llocs on els webs més espavilats van a buscar el
 
 **IP falses on es pot.** Els scripts que pregunten la IP per WebRTC en reben una de falsa, i les peticions porten una IP falsa a `X-Forwarded-For`. Aquestes IP surten sempre de l'espai que els proveïdors fan servir per dins (`100.64.0.0/10`): semblen d'una connexió de debò, però no són de ningú, i no poden apuntar cap persona. La IP de la connexió és la real: una extensió no la pot canviar.
 
-**Webs de confiança.** Als que tu tries (per defecte, Google, YouTube, GitHub, Claude i Mozilla) hi vas sense disfressa, i s'hi queden les seves galetes perquè no et tregui de la sessió. Les de tercers i les de seguiment, en canvi, se les menja igualment. La confiança només compta quan visites el web: si surt dins d'un altre (un vídeo de YouTube en un diari, un reCAPTCHA), és un tercer més.
+**Webs de confiança.** Als que tu tries (per defecte, Google, YouTube, GitHub, Claude, Mozilla i Vivaldi) hi vas sense disfressa, i s'hi queden les seves galetes perquè no et tregui de la sessió. Les de tercers i les de seguiment, en canvi, se les menja igualment. La confiança només compta quan visites el web: si surt dins d'un altre (un vídeo de YouTube en un diari, un reCAPTCHA), és un tercer més.
 
 **Respon els avisos de galetes** (OneTrust, Cookiebot, Didomi, Usercentrics, Sourcepoint i altres): els accepta o els rebutja per tu, com triïs.
 
@@ -76,7 +76,7 @@ Al Chromium, l'extensió fa el mateix que al Firefox, amb aquestes diferències:
 - `extensio/lib/comu.js`: les peces comunes (llocs, galetes de seguiment, països i disfresses).
 - `chromium/`: la versió per al Vivaldi, el Chrome i el Brave (Manifest V3). `fons.js` és un *service worker* que fa servir `declarativeNetRequest`, `userScripts` i `cookies`; `pagina.js` és el codi de pàgina (al món MAIN); `contingut.js` respon els avisos i detecta les pàgines amb contrasenya. La finestreta, les opcions i `lib/comu.js` són els mateixos del Firefox: `eines/construeix-chromium.py` ho ajunta tot.
 - `proves/prova.py`: obre un Firefox a part, sense finestra, amb un perfil temporal, i fa 96 proves contra un servidor local. Només fa servir Python i el protocol Marionette del Firefox: `python3 proves/prova.py`.
-- `proves/prova-chromium.mjs`: el mateix amb un Vivaldi a part (41 proves), controlat amb el protocol DevTools des del Node: `node proves/prova-chromium.mjs`.
+- `proves/prova-chromium.mjs`: el mateix amb un Vivaldi a part (41 proves), controlat amb el protocol DevTools des del Node: `node proves/prova-chromium.mjs`. Amb `NAVEGADOR=chrome`, les fa amb el Google Chrome (que, des de la versió 137, s'hi carrega amb l'ordre `Extensions.loadUnpacked` del protocol).
 
 ## Llicència
 
