@@ -52,6 +52,24 @@ function empremtes(d) {
   }
 }
 
+// On et situa la IP: el país, i la ciutat del centre de Cloudflare per on surts (codi d'aeroport).
+const CIUTATS_COLO = {
+  BCN: "Barcelona", MAD: "Madrid", VLC: "València", AGP: "Màlaga", BIO: "Bilbao", PMI: "Palma", LIS: "Lisboa",
+  OPO: "Porto", MRS: "Marsella", TLS: "Tolosa", CDG: "París", ORY: "París", LYS: "Lió", FRA: "Frankfurt",
+  MUC: "Munic", BER: "Berlín", TXL: "Berlín", HAM: "Hamburg", DUS: "Düsseldorf", AMS: "Amsterdam",
+  BRU: "Brussel·les", LHR: "Londres", MAN: "Manchester", DUB: "Dublín", MXP: "Milà", FCO: "Roma", ZRH: "Zuric",
+  GVA: "Ginebra", VIE: "Viena", CPH: "Copenhaguen", ARN: "Estocolm", OSL: "Oslo", HEL: "Hèlsinki",
+  WAW: "Varsòvia", PRG: "Praga", EWR: "Nova York", JFK: "Nova York", IAD: "Washington", LAX: "Los Angeles",
+  NRT: "Tòquio", KIX: "Osaka", EZE: "Buenos Aires", SYD: "Sydney", JNB: "Johannesburg",
+};
+function ubicacioReal(paisIP, colo) {
+  const p = MG.PAISOS[paisIP];
+  let pais = p ? p.nom.replace(/^(el|els|l')\s?/, "") : (paisIP || "");
+  pais = pais.charAt(0).toUpperCase() + pais.slice(1);
+  const ciutat = CIUTATS_COLO[colo];
+  return ciutat ? `${pais}, a prop de ${ciutat}` : (pais || "no la sé");
+}
+
 // La targeta gràfica de debò, tal com la diu el navegador (escurçada).
 function graficaReal() {
   try {
@@ -174,7 +192,7 @@ async function pinta() {
   const idiomaReal = MG.IDIOMES[(navigator.language || "").split("-")[0]] || navigator.language;
   const files = [];
   if (f.navegador) files.push(["Navegador", `${d.navegadorNom} ${cfg.versio} · ${d.soNom}`, `${navegadorReal()} · ${sistemaReal()}`, ""]);
-  if (f.ubicacio) files.push(["Ubicació", d.ciutat, "amagada", ""]);
+  if (f.ubicacio) files.push(["Ubicació", d.ciutat, ubicacioReal(cfg.paisIP, e.coloReal), ""]);
   if (f.idioma) files.push(["Idioma", MG.IDIOMES[d.idiomes[0].split("-")[0]] || d.idiomes[0], idiomaReal, ""]);
   if (f.pantalla) files.push(["Pantalla", `${d.pantalla.w} × ${d.pantalla.h}`, `${real.w} × ${real.h}`, ""]);
   if (f.pantalla) files.push(["Gràfica", d.gpu.nom, graficaReal(), ""]);
@@ -190,6 +208,10 @@ async function pinta() {
     fitxa.append(h("div.q" + cl, q), h("div.fals" + cl, fals), h("div.ver" + cl, ver));
   }
   cos.append(fitxa);
+  if (f.ubicacio) {
+    cos.append(h("div.nota", "Ubicació de debò: la que els webs poden treure de la teva IP (el país, i més o menys la ciutat). " +
+      "L'extensió no sap on ets exactament, ni ho pregunta."));
+  }
   if (emp) {
     cos.append(h("div.nota", `Empremta: el codi que treu un web quan fa dibuixar una imatge al navegador. ` +
       `Amb la disfressa, aquest web rep el ${emp.falsa}; sense, rebria el ${emp.real}, que és el teu.`));

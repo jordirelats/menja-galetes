@@ -173,7 +173,7 @@ class Gestor(BaseHTTPRequestHandler):
         elif u.path == "/pais":
             if "posa" in q:
                 ESTAT["pais"] = q["posa"][0]
-            self._envia(f"fl=000\nip=192.0.2.1\nloc={ESTAT['pais']}\n", "text/plain")
+            self._envia(f"fl=000\nip=192.0.2.1\ncolo=BCN\nloc={ESTAT['pais']}\n", "text/plain")
         else:
             self.send_error(404)
 

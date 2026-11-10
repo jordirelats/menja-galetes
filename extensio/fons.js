@@ -443,6 +443,9 @@ async function comprovaPais() {
     // La IP de debò, per ensenyar-la a la finestreta. Només es desa en aquest ordinador.
     const ip = (/^ip=([0-9a-fA-F.:]+)$/m.exec(text) || [])[1];
     if (ip) await browser.storage.local.set({ ipReal: ip });
+    // El centre de Cloudflare per on surts (BCN, MAD…): és més o menys la ciutat que la IP diu als webs.
+    const colo = (/^colo=([A-Z]{3})$/m.exec(text) || [])[1];
+    await browser.storage.local.set({ coloReal: colo || null });
   } catch (e) {
     return;
   }
@@ -507,9 +510,9 @@ browser.runtime.onMessage.addListener(async (m, sender) => {
   }
   if (m.tipus === "estat") {
     const p = pestanyes.get(m.tabId) || {};
-    const { ipReal } = await browser.storage.local.get("ipReal");
+    const { ipReal, coloReal } = await browser.storage.local.get(["ipReal", "coloReal"]);
     return {
-      ipReal: ipReal || null,
+      ipReal: ipReal || null, coloReal: coloReal || null,
       cfg: perAPagina(),
       confiancaUsuari: cfg.confianca,
       realAuto: cfg.realAuto,
