@@ -80,7 +80,10 @@ const confiat = (lloc) => MG.esConfiat(lloc, cfg.confianca) || cfg.realAuto.incl
 // contrasenya o amb sistemes contra el frau) no hi ha disfressa, però les galetes de
 // tercers i de seguiment se les menja igualment.
 const deConfianca = (lloc) => !!lloc && (cfg.confianca || []).some((w) => MG.lloc(w) === lloc);
-const esReal = (host) => !!host && (MG.esIdentitatReal(host) || cfg.realAuto.includes(MG.lloc(host)));
+// Als webs de confiança tampoc no hi ha disfressa, i s'hi tracten les galetes com als «reals».
+// La confiança només compta quan el web és el de dalt: si surt dins d'un altre (un vídeo de
+// YouTube en un diari), és un tercer més.
+const esReal = (host) => !!host && (MG.esIdentitatReal(host) || cfg.realAuto.includes(MG.lloc(host)) || deConfianca(MG.lloc(host)));
 
 /* ---- Pestanyes ---- */
 
@@ -134,7 +137,7 @@ function obert(lloc) {
 }
 
 function potserMenja(lloc) {
-  if (!lloc || !cfg.actiu || deConfianca(lloc) || obert(lloc) || pendents.has(lloc)) return;
+  if (!lloc || !cfg.actiu || obert(lloc) || pendents.has(lloc)) return;
   pendents.set(lloc, setTimeout(() => menja(lloc, {}), cfg.retardMenjar * 1000));
 }
 
@@ -146,7 +149,7 @@ function potserMenja(lloc) {
  */
 async function menja(lloc, { obertes = false, protegides = false } = {}) {
   pendents.delete(lloc);
-  if (!lloc || deConfianca(lloc)) return 0;
+  if (!lloc) return 0;
   if (!obertes && obert(lloc)) return 0;
   const real = esReal(lloc);
   const llistes = [];
@@ -243,7 +246,7 @@ browser.webRequest.onBeforeRequest.addListener(detectaAntifrau, { urls: ["<all_u
 function netejaEnllac(det) {
   if (!cfg.actiu || det.method !== "GET" || det.tabId < 0) return {};
   const lloc = det.type === "main_frame" ? MG.llocDeUrl(det.url) : llocSuperiorDe(det);
-  if (!lloc || deConfianca(lloc)) return {};
+  if (!lloc) return {};
   const net = MG.netejaUrl(det.url);
   return net ? { redirectUrl: net } : {};
 }
@@ -292,7 +295,7 @@ function abansEnviar(det) {
   // Sense disfressa si el web de dalt és de confiança o real, o si la petició va a un banc,
   // un pagament o un sistema contra el frau. (Un botó de Facebook dins d'un diari, en canvi,
   // va disfressat com el diari.)
-  if (!lloc || confiatHost(hostSup) || deConfianca(MG.lloc(hostReq)) || MG.esProtegitFrau(hostReq)) return {};
+  if (!lloc || confiatHost(hostSup) || MG.esProtegitFrau(hostReq)) return {};
   // Un sistema contra el frau o de verificació d'identitat: aquest web, sense disfressa.
   if (MG.esAntifrau(new URL(det.url).hostname)) {
     marcaReal(lloc, det.tabId, true);
@@ -389,7 +392,7 @@ async function rebutCapcaleres(det) {
   let host;
   try { host = new URL(det.url).hostname; } catch (e) { return {}; }
   const llocReq = MG.lloc(host);
-  if (!llocSup || deConfianca(llocSup) || deConfianca(llocReq)) return {};
+  if (!llocSup) return {};
   const real = esReal(hostSup);
   // Les galetes d'un banc, d'un pagament o d'un sistema contra el frau no es toquen mai.
   if (llocReq !== llocSup && (MG.esProtegitFrau(host) || cfg.realAuto.includes(llocReq))) return {};
@@ -561,7 +564,7 @@ async function primeraVegada() {
   try { totes = totes.concat(await browser.cookies.getAll({})); } catch (e) { /* res */ }
   try { totes = totes.concat(await browser.cookies.getAll({ partitionKey: {} })); } catch (e) { /* res */ }
   for (const c of totes) {
-    if (MG.esSeguiment(c.name) && !deConfianca(MG.lloc(c.domain)) && !MG.esProtegitFrau(c.domain.replace(/^\./, ""))) {
+    if (MG.esSeguiment(c.name) && !MG.esProtegitFrau(c.domain.replace(/^\./, ""))) {
       const det = { url: (c.secure ? "https://" : "http://") + c.domain.replace(/^\./, "") + c.path, name: c.name, storeId: c.storeId };
       if (c.partitionKey) det.partitionKey = c.partitionKey;
       if (c.firstPartyDomain) det.firstPartyDomain = c.firstPartyDomain;
@@ -578,7 +581,7 @@ async function primeraVegada() {
 async function neteja() {
   const llocs = new Set();
   try { for (const c of await browser.cookies.getAll({})) llocs.add(MG.lloc(c.domain)); } catch (e) { /* res */ }
-  for (const l of llocs) if (!deConfianca(l) && !obert(l)) await menja(l, {});
+  for (const l of llocs) if (!obert(l)) await menja(l, {});
 }
 
 async function arrenca(perInstallar) {

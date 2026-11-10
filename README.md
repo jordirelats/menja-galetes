@@ -22,6 +22,8 @@ La disfressa arriba també als llocs on els webs més espavilats van a buscar el
 
 **IP falses on es pot.** Els scripts que pregunten la IP per WebRTC en reben una de falsa, i les peticions porten una IP falsa a `X-Forwarded-For`. Aquestes IP surten sempre de l'espai que els proveïdors fan servir per dins (`100.64.0.0/10`): semblen d'una connexió de debò, però no són de ningú, i no poden apuntar cap persona. La IP de la connexió és la real: una extensió no la pot canviar.
 
+**Webs de confiança.** Als que tu tries (per defecte, Google, YouTube, GitHub, Claude i Mozilla) hi vas sense disfressa, i s'hi queden les seves galetes perquè no et tregui de la sessió. Les de tercers i les de seguiment, en canvi, se les menja igualment. La confiança només compta quan visites el web: si surt dins d'un altre (un vídeo de YouTube en un diari, un reCAPTCHA), és un tercer més.
+
 **Respon els avisos de galetes** (OneTrust, Cookiebot, Didomi, Usercentrics, Sourcepoint i altres): els accepta o els rebutja per tu, com triïs.
 
 **Si la IP canvia de país** (per exemple, si encens una VPN), es posa una disfressa del país nou i se les menja totes, perquè el web no pugui lligar l'abans i el després.
@@ -54,7 +56,7 @@ Cal el Firefox 128 o més nou.
 - `extensio/fons.js`: reescriu les `Set-Cookie` abans que es desin (`webRequest` bloquejant, que el Firefox manté a Manifest V2), posa la disfressa a les capçaleres i se les menja quan tanques la pestanya.
 - `extensio/lib/pagina.js`: el codi que va a cada pàgina a `document_start`, abans que cap script del web. Toca els objectes de la pàgina amb les Xray del Firefox (`wrappedJSObject`, `exportFunction`).
 - `extensio/lib/comu.js`: les peces comunes (llocs, galetes de seguiment, països i disfresses).
-- `proves/prova.py`: obre un Firefox a part, sense finestra, amb un perfil temporal, i fa 94 proves contra un servidor local. Només fa servir Python i el protocol Marionette del Firefox: `python3 proves/prova.py`.
+- `proves/prova.py`: obre un Firefox a part, sense finestra, amb un perfil temporal, i fa 96 proves contra un servidor local. Només fa servir Python i el protocol Marionette del Firefox: `python3 proves/prova.py`.
 
 ## Llicència
 

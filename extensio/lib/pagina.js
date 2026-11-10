@@ -34,12 +34,11 @@ function MG_pagina(MG, cfg) {
     }
   }
   if (!llocSuperior) llocSuperior = "atzar:" + MG.aleatori(1e9);
-  // Web de confiança de l'usuari: no es toca res.
-  if ((cfg.confianca || []).some((w) => MG.lloc(w) === llocSuperior)) return;
-  // Banc, govern, pagaments, xarxa social o de cites, o web amb contrasenya o sistema contra
-  // el frau: sense disfressa, però les galetes de seguiment que hi posen els tercers per
-  // JavaScript, se les menja.
-  const real = MG.esIdentitatReal(hostSuperior) || (cfg.realAuto || []).includes(llocSuperior);
+  // Web de confiança, banc, govern, pagaments, xarxa social o de cites, o web amb contrasenya
+  // o sistema contra el frau: sense disfressa, però les galetes de seguiment que hi posen els
+  // tercers per JavaScript, se les menja.
+  const usuari = (cfg.confianca || []).some((w) => MG.lloc(w) === llocSuperior);
+  const real = usuari || MG.esIdentitatReal(hostSuperior) || (cfg.realAuto || []).includes(llocSuperior);
   if (real && MG.esProtegitFrau(location.hostname) && location.hostname !== hostSuperior) return;
 
   const f = cfg.falseja;
@@ -437,7 +436,8 @@ function MG_pagina(MG, cfg) {
 
   /* ---- Els avisos de galetes ---- */
   // A la pàgina principal, i als marcs que són d'un avís (Sourcepoint en fa servir).
-  if (cfg.avisos !== "res" && (window.top === window || /consent|cmp|privacy|sp_message|cookie/i.test(location.href))) {
+  // (Als webs de confiança, l'avís el respons tu.)
+  if (!usuari && cfg.avisos !== "res" && (window.top === window || /consent|cmp|privacy|sp_message|cookie/i.test(location.href))) {
     const accepta = cfg.avisos === "acceptar";
     // [nom, botó d'acceptar, botó de rebutjar]
     const CMP = [

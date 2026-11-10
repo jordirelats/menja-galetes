@@ -162,7 +162,8 @@ class Gestor(BaseHTTPRequestHandler):
         elif u.path == "/fp.js":
             self._envia("window.__fp = 1;", "text/javascript")
         elif u.path == "/simple":
-            marc = '<iframe src="http://diari.test:8765/tercer"></iframe>' if "marc" in q else ""
+            origen = "localhost" if q.get("marc", [""])[0] == "localhost" else "diari.test"
+            marc = f'<iframe src="http://{origen}:8765/tercer"></iframe>' if "marc" in q else ""
             self._envia(SIMPLE % marc, galetes=["_ga=GA1.1.111111111.1700000000; Max-Age=63072000; Path=/",
                                                 "sessio=banc123; Max-Age=86400; Path=/"])
         elif u.path == "/avis":

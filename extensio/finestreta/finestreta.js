@@ -68,11 +68,11 @@ async function pinta() {
         ? "És una xarxa social, de missatgeria o de cites, o una plataforma on hi ha menors. Hi vas amb la teva identitat real, perquè els seus sistemes contra els comptes falsos, l'assetjament i els usuaris expulsats funcionin."
       : auto
         ? "Aquest web demana una contrasenya o una targeta, fa servir un sistema contra el frau, o el seu certificat és d'un banc o d'una administració. Hi vas sense disfressa, perquè aquests sistemes funcionin."
-        : "Les galetes d'aquest web es queden, i hi vas sense disfressa, perquè no et tregui de la sessió.";
+        : "És un web de confiança: hi vas sense disfressa, i les seves galetes es queden perquè no et tregui de la sessió. Les de tercers i les de seguiment, me les menjo igualment.";
     cos.append(h("div.heroi", img, h("div",
-      h("div.mitja.verd", sempre || xarxa || auto ? "Aquí hi vas amb la teva identitat real" : "Aquí no em menjo res"),
+      h("div.mitja.verd", sempre || xarxa || auto ? "Aquí hi vas amb la teva identitat real" : "Aquí no et disfresso"),
       h("div.sota", explica))));
-    if ((sempre || xarxa || auto) && e.galetes.length) {
+    if (e.galetes.length) {
       cos.append(h("div.titol-llista", "Galetes de tercers i de seguiment · menjades igualment"));
       cos.append(h("div.gls", e.galetes.slice(0, 8).map((g) =>
         h("div.gl", h("code", g.nom), h("s", escurça(g.original || "(buida)")), h("span.fl", "→"), h("b", escurça(g.fals)))

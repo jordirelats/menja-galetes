@@ -243,6 +243,7 @@ MG.SEGUIMENT = [
   /^muc_ads$/, /^personalization_id$/, /^guest_id(_ads|_marketing)?$/, /^_derived_epik$/,
   /^li_sugr$/, /^bcookie$/, /^UID$/, /^XANDR_PANID$/, /^uuid2$/, /^anj$/, /^tuuid/,
   /^__adroll/, /^_au_1d$/, /^_lc2_fpi/, /^_tt_enable_cookie$/, /^_pinterest_ct_ua$/,
+  /^VISITOR_INFO1_LIVE$/,   // l'identificador de visitant de YouTube
 ];
 
 MG.esSeguiment = function (nom) {

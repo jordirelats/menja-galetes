@@ -300,7 +300,10 @@ def main():
         comprova("al web de confiança, sense disfressa", "Linux" in info4.get("userAgent", ""), info4.get("userAgent"))
         gs = galetes(m)
         ga = [g for g in gs if g["name"] == "_ga" and g["host"] == "localhost"]
-        comprova("i la _ga hi queda tal qual", ga and ga[0]["value"] == "GA1.1.111111111.1700000000")
+        comprova("però la _ga (de Google), menjada igualment", ga and ga[0]["value"] != "GA1.1.111111111.1700000000",
+                 ga and ga[0]["value"])
+        ses = [g for g in gs if g["name"] == "sessio" and g["host"] == "localhost"]
+        comprova("i la sessió del web de confiança, tal qual", ses and ses[0]["value"] == "abc123")
 
         # ---- 9. Pàgines amb contrasenya ----
         print("\n9. Una pàgina amb contrasenya va sense disfressa")
@@ -325,8 +328,13 @@ def main():
                 if not recarrega or inf.get("carrega", 0) >= 2:
                     break
             return inf
-        a = simple("http://diari.test:8765/simple")
+        a = simple("http://diari.test:8765/simple?marc=localhost")
+        time.sleep(1)
         comprova("un diari qualsevol: disfressat", "Linux" not in a.get("userAgent", "Linux"), a.get("userAgent"))
+        gs = galetes(m)
+        ide = [g for g in gs if g["name"] == "IDE" and g["host"] == "localhost" and "diari.test" in (g["partition"] or "")]
+        comprova("un web de confiança dins d'un altre: les seves galetes, menjades", ide and ide[0]["value"] != "AHWqTUmREALREAL123",
+                 ide and f"{ide[0]['value']} · {ide[0]['partition']}")
         b = simple("http://www.bancprova.test:8765/simple?marc=1")
         time.sleep(1)
         comprova("un banc pel nom: navegador de debò", "Linux" in b.get("userAgent", ""), b.get("userAgent"))
