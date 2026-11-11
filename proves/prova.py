@@ -129,7 +129,7 @@ def main():
         'user_pref("intl.accept_languages", "ca,es,en");',
         # Noms de prova que van al servidor local (no surt res a internet)
         'user_pref("network.dns.localDomains", "diari.test,www.bancprova.test,www.prova.gob.es,botiga.test,'
-        'h.online-metrix.net,empresa.test,www.instagram.com,revista.test,amagat.test,bucle.test");',
+        'h.online-metrix.net,empresa.test,www.instagram.com,revista.test,amagat.test,bucle.test,static.hotjar.com,us1.list-manage.com,l.facebook.com,vell.test");',
     ]))
     env = dict(os.environ, MOZ_HEADLESS="1")
     ff = subprocess.Popen(["firefox", "--headless", "--marionette", "-remote-allow-system-access", "--no-remote", "--profile", str(perfil)],
@@ -472,6 +472,80 @@ def main():
                  f"{b2.get('userAgent')} · càrregues {b2.get('carrega')}")
         comprova("i ja no es torna a carregar", b2.get("carrega", 99) < 15 and b2.get("carrega") == info_pagina(m).get("carrega"),
                  f"càrregues {b2.get('carrega')}")
+
+        # ---- 14. Les idees de l'11/11/2026 ----
+        print("\n14. Gravadors, espies, rebots, GPC, galetes velles i el resum")
+        principal = m.ordre("WebDriver:GetWindowHandle")
+        principal = principal["value"] if isinstance(principal, dict) else principal
+
+        def en_una_altra(codi):
+            """Fa una cosa des d'una pàgina de l'extensió, en una pestanya a part, i hi torna."""
+            m.pestanya_nova()
+            m.ves(f"moz-extension://{uuid}/opcions/opcions.html")
+            r = m.js_async("const f = arguments[arguments.length - 1]; const b = (window.wrappedJSObject || window).browser;"
+                           "Promise.resolve().then(() => " + codi + ").then((r) => f(JSON.stringify(r === undefined ? null : r)),"
+                           " (e) => f(JSON.stringify('error ' + e)));")
+            m.tanca()
+            m.canvia(principal)
+            return json.loads(r)
+
+        g = simple("http://diari.test:8765/gpc")
+        comprova("GPC: la pàgina veu navigator.globalPrivacyControl", g.get("gpc") is True, g)
+        m.ves("http://diari.test:8765/eco")
+        eco14 = json.loads(m.js("return document.body.textContent;"))
+        comprova("GPC: el web rep Sec-GPC: 1", eco14.get("Sec-GPC") == "1", eco14.get("Sec-GPC"))
+        gr = simple("http://diari.test:8765/gravador")
+        for _ in range(10):
+            if gr.get("control") is not None:
+                break
+            time.sleep(0.3)
+            gr = info_pagina(m)
+        comprova("el gravador de sessió (Hotjar) no s'ha carregat, i l'script normal sí", gr.get("gravador") is False and gr.get("control") is True, gr)
+        m.ves("http://diari.test:8765/correu")
+        cor = info_pagina(m)
+        comprova("l'espia del correu (Mailchimp) no s'ha carregat, i la imatge normal sí", cor.get("espia") == "error" and cor.get("normal") == "load", cor)
+        m.pestanya_nova()
+        m.ordre("WebDriver:SetWindowRect", {"width": 440, "height": 2400})
+        m.ves(f"moz-extension://{uuid}/finestreta/finestreta.html?web=http://diari.test:8765/correu")
+        time.sleep(1.2)
+        (CAPTURES / "finestreta-noves.png").write_bytes(base64.b64decode(m.captura_element("body")))
+        text14 = m.js("return document.body.innerText;")
+        m.ordre("WebDriver:SetWindowRect", {"width": 700, "height": 2600})
+        m.ves(f"moz-extension://{uuid}/opcions/opcions.html")
+        time.sleep(0.8)
+        (CAPTURES / "opcions-noves.png").write_bytes(base64.b64decode(m.captura_element("main")))
+        m.ordre("WebDriver:SetWindowRect", {"width": 1280, "height": 900})
+        m.tanca()
+        m.canvia(principal)
+        comprova("la finestreta diu que el web et volia gravar (Hotjar)", "Aquest web et volia gravar" in text14 and "Hotjar" in text14)
+        comprova("i quants espies de correu s'ha menjat", "de correu menjat" in text14 and "Mailchimp" in text14)
+        comprova("i el resum de la setmana", "aquesta setmana" in text14.lower() and "m'he menjat" in text14.lower())
+        m.ves("http://l.facebook.com:8765/l.php?u=http%3A%2F%2Fdiari.test%3A8765%2Fsimple%3Fid%3D7%26utm_source%3Dfb&h=AT0x")
+        time.sleep(1)
+        url14 = m.js("return location.href;")
+        comprova("rebot de Facebook: directament al web, sense el comptador ni utm_", url14 == "http://diari.test:8765/simple?id=7", url14)
+        simple("http://diari.test:8765/simple")
+        v14 = en_una_altra('b.cookies.set({url: "http://vell.test:8765/", name: "antiga", value: "1", expirationDate: Date.now() / 1000 + 86400 * 365})'
+                           '.then(() => b.storage.local.get("protegides"))'
+                           '.then((s) => b.storage.local.set({protegides: [...(s.protegides || []), "vell.test|antiga", "diari.test|sessio"]}))'
+                           '.then(() => b.runtime.sendMessage({tipus: "menjaVelles", ara: Date.now() + 40 * 864e5}))')
+        gs = galetes(m)
+        comprova("galetes velles: les d'un web on no vas fa 40 dies, menjades", not any(x["name"] == "antiga" for x in gs), v14)
+        comprova("però les d'un web obert es queden", any(x["name"] == "sessio" and "diari.test" in x["host"] for x in gs))
+        time.sleep(2)
+        rs = en_una_altra('b.storage.local.get("resum").then((s) => s.resum)') or {}
+        comprova("el resum compta galetes, gravadors, espies i rebots",
+                 rs.get("galetes", 0) > 0 and rs.get("gravadors", 0) >= 1 and rs.get("espies", 0) >= 1 and rs.get("rebots", 0) >= 1
+                 and rs.get("empreses", {}).get("Google", 0) > 0, rs)
+        en_una_altra('b.runtime.sendMessage({tipus: "senseDisfressa", lloc: "diari.test", minuts: 1})')
+        t14 = simple("http://diari.test:8765/simple")
+        comprova("«Compara-la sense disfressa»: el web va sense disfressa una estona", "Linux" in t14.get("userAgent", ""), t14.get("userAgent"))
+        if not all(ok for _, ok, _ in resultats):
+            # Si alguna falla: els errors de l'extensió que ha vist el Firefox.
+            m.context("chrome")
+            errs = m.js("""return Services.console.getMessageArray().map((x) => x.message || String(x))
+              .filter((t) => /moz-extension|menja/i.test(t)).slice(-12);""")
+            print("\nErrors de l'extensió:\n  " + "\n  ".join(e[:300] for e in errs or ["cap"]))
     finally:
         try:
             ff.terminate()

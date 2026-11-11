@@ -65,6 +65,8 @@ function MG_pagina(MG, cfg) {
       if (win.Document.prototype[marca]) return;
       Object.defineProperty(win.Document.prototype, marca, { value: true, configurable: true });
     } catch (e) { return; }
+    // «No venguis les meves dades» (GPC): també als webs sense disfressa.
+    if (cfg.gpc) getter(win.Navigator.prototype, "globalPrivacyControl", () => true);
     galetesJS(win);
     if (!real) resta(win);
   }

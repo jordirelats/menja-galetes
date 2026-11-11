@@ -26,6 +26,12 @@ MG.PER_DEFECTE = {
     "google.com", "google.es", "youtube.com", "github.com",
     "claude.ai", "anthropic.com", "mozilla.org", "firefox.com", "vivaldi.com", "vivaldi.net",
   ],
+  velles: 30,                // dies sense anar a un web per menjar-se les galetes que ja hi havia (0: mai)
+  gravadors: true,           // els gravadors de sessió (Hotjar, Clarity…) no graven res
+  espies: true,              // els píxels espia dels correus no es carreguen
+  rebots: true,              // salta els comptadors dels enllaços (l.facebook.com, google.com/url…)
+  gpc: true,                 // envia el senyal «no venguis les meves dades» (Sec-GPC)
+  resumAvis: true,           // un avís cada dilluns amb el resum de la setmana
   retardMenjar: 20,          // segons que espera després de tancar l'última pestanya d'un web
   minutsPais: 3,             // cada quant mira per quin país surt la connexió
   urlPais: "https://www.cloudflare.com/cdn-cgi/trace",
@@ -230,6 +236,175 @@ MG.esBucle = function (registre, tabId, url, ara = Date.now()) {
   registre.delete(tabId);
   return true;
 };
+
+/* ---- Gravadors de sessió, espies dels correus i rebots dels enllaços (11/11/2026) ---- */
+
+// Graven on mous el ratolí, on cliques i què escrius, per mirar-ho després com un vídeo. No se'ls
+// deixa carregar ni enviar res (llevat del seu propi web): la sessió que graven és buida.
+MG.GRAVADORS = [
+  { nom: "Hotjar", dominis: ["hotjar.com", "hotjar.io"] },
+  { nom: "Microsoft Clarity", dominis: ["clarity.ms"] },
+  { nom: "FullStory", dominis: ["fullstory.com"] },
+  { nom: "LogRocket", dominis: ["logrocket.io", "logrocket.com", "lr-ingest.io", "lr-ingest.com", "lr-in.com", "lr-in-prod.com"] },
+  { nom: "Mouseflow", dominis: ["mouseflow.com"] },
+  { nom: "Smartlook", dominis: ["smartlook.com", "smartlook.cloud"] },
+  { nom: "Lucky Orange", dominis: ["luckyorange.com", "luckyorange.net"] },
+  { nom: "Inspectlet", dominis: ["inspectlet.com"] },
+  { nom: "Contentsquare", dominis: ["contentsquare.net"] },
+  { nom: "Quantum Metric", dominis: ["quantummetric.com"] },
+  { nom: "Glassbox", dominis: ["glassboxdigital.io", "glassboxcdn.com"] },
+  { nom: "Crazy Egg", dominis: ["crazyegg.com"] },
+  { nom: "SessionCam", dominis: ["sessioncam.com"] },
+  { nom: "Decibel", dominis: ["decibelinsight.net"] },
+];
+MG.DOMINIS_GRAVADORS = MG.GRAVADORS.flatMap((g) => g.dominis);
+// El nom del gravador d'aquest host, o null.
+MG.gravadorDe = function (host) {
+  host = String(host || "").toLowerCase();
+  const g = MG.GRAVADORS.find((x) => x.dominis.some((d) => host === d || host.endsWith("." + d)));
+  return g ? g.nom : null;
+};
+
+// Els píxels espia dels correus: una imatge invisible que avisa qui ha obert el correu, quan i
+// des d'on. Les expressions serveixen tal qual per al JavaScript i per a les regles del Chromium.
+MG.ESPIES = [
+  { nom: "Mailchimp", re: "^https?://[^/]*list-manage\\.com(:[0-9]+)?/track/open\\.php" },
+  { nom: "SendGrid", re: "^https?://[^/]+/wf/open\\?upn=" },
+  { nom: "Amazon SES", re: "^https?://[^/]*awstrack\\.me(:[0-9]+)?/I0/" },
+  { nom: "Salesforce", re: "^https?://[^/]*exct\\.net(:[0-9]+)?/open\\.aspx" },
+  { nom: "Mailjet", re: "^https?://[^/]*mjt\\.lu(:[0-9]+)?/oo/" },
+  { nom: "Brevo", re: "^https?://[^/]*(sendibt[0-9]*\\.com|sendibm[0-9]*\\.com|brevo\\.net|sendinblue\\.com)(:[0-9]+)?/tr/op/" },
+  { nom: "Mailgun", re: "^https?://email\\.[^/]+/o/[A-Za-z0-9_=-]{20,}" },
+  { nom: "Campaign Monitor", re: "^https?://[^/]*cmail[0-9]+\\.com(:[0-9]+)?/t/.*o\\.gif" },
+  { nom: "Constant Contact", re: "^https?://r20\\.rs6\\.net(:[0-9]+)?/on\\.jsp" },
+  { nom: "HubSpot", re: "^https?://[^/]*(hubspotemail\\.net|hubspotlinks\\.com|hubspotstarter\\.net|hubspotfree\\.net)(:[0-9]+)?/e[0-9a-z]*/to/" },
+  { nom: "Mailtrack", re: "^https?://mailtrack\\.io(:[0-9]+)?/trace/mail/" },
+  { nom: "Streak", re: "^https?://mailfoogae\\.appspot\\.com(:[0-9]+)?/t\\?" },
+  { nom: "Superhuman", re: "^https?://r\\.superhuman\\.com/" },
+  { nom: "Yesware", re: "^https?://t\\.yesware\\.com/" },
+];
+MG.espiaDe = function (url) {
+  if (!MG._espies) MG._espies = MG.ESPIES.map((x) => [x.nom, new RegExp(x.re, "i")]);
+  const e = MG._espies.find(([, r]) => r.test(url));
+  return e ? e[0] : null;
+};
+
+// Els rebots: enllaços que passen per un comptador abans d'anar on vols. Només els que porten
+// l'adreça de destí a dins («…u=http…»): es pot anar directament al destí sense passar pel
+// comptador. «re» va tal qual a les regles del Chromium (que redirigeixen a rebot.html).
+MG.REBOTS = [
+  { nom: "Facebook", re: "^https?://(l|lm)\\.facebook\\.com(:[0-9]+)?/l\\.php\\?(.*&)?u=http", q: ["u"] },
+  { nom: "Messenger", re: "^https?://l\\.messenger\\.com(:[0-9]+)?/l\\.php\\?(.*&)?u=http", q: ["u"] },
+  { nom: "Instagram", re: "^https?://l\\.instagram\\.com(:[0-9]+)?/\\?(.*&)?u=http", q: ["u"] },
+  { nom: "Google", re: "^https?://(www\\.)?google\\.[a-z.]+(:[0-9]+)?/url\\?(.*&)?(q|url)=http", q: ["q", "url"] },
+  { nom: "YouTube", re: "^https?://(www\\.)?youtube\\.com(:[0-9]+)?/redirect\\?(.*&)?q=http", q: ["q"] },
+  { nom: "Reddit", re: "^https?://out\\.reddit\\.com(:[0-9]+)?/[^?]*\\?(.*&)?url=http", q: ["url"] },
+  { nom: "LinkedIn", re: "^https?://(www\\.)?linkedin\\.com(:[0-9]+)?/redir/redirect/?\\?(.*&)?url=http", q: ["url"] },
+  { nom: "Steam", re: "^https?://steamcommunity\\.com(:[0-9]+)?/linkfilter/?\\?(.*&)?(u|url)=http", q: ["u", "url"] },
+  { nom: "VK", re: "^https?://(m\\.)?vk\\.com(:[0-9]+)?/away\\.php\\?(.*&)?to=http", q: ["to"] },
+  { nom: "Slack", re: "^https?://slack-redir\\.net(:[0-9]+)?/link\\?(.*&)?url=http", q: ["url"] },
+  { nom: "Tumblr", re: "^https?://t\\.umblr\\.com(:[0-9]+)?/redirect\\?(.*&)?z=http", q: ["z"] },
+  { nom: "Disqus", re: "^https?://disq\\.us(:[0-9]+)?/url\\?(.*&)?url=http", q: ["url"] },
+  { nom: "DuckDuckGo", re: "^https?://(www\\.)?duckduckgo\\.com(:[0-9]+)?/l/\\?(.*&)?uddg=http", q: ["uddg"] },
+  { nom: "Bing", re: "^https?://(www\\.)?bing\\.com(:[0-9]+)?/ck/a\\?(.*&)?u=a1", q: ["u"], bing: true },
+  { nom: "Yahoo", re: "^https?://r\\.search\\.yahoo\\.com(:[0-9]+)?/.*/RU=http", ru: true },
+  { nom: "Awin", re: "^https?://(www\\.)?awin1\\.com(:[0-9]+)?/cread\\.php\\?(.*&)?ued=http", q: ["ued"] },
+  { nom: "Skimlinks", re: "^https?://go\\.redirectingat\\.com(:[0-9]+)?/\\?(.*&)?url=http", q: ["url"] },
+  { nom: "Rakuten", re: "^https?://click\\.linksynergy\\.com(:[0-9]+)?/[^?]*\\?(.*&)?murl=http", q: ["murl"] },
+];
+// {desti, nom} si l'adreça és un rebot que es pot saltar; si no, null.
+MG.destiRebot = function (url) {
+  if (!MG._rebots) MG._rebots = MG.REBOTS.map((r) => Object.assign({ rx: new RegExp(r.re, "i") }, r));
+  for (const r of MG._rebots) {
+    if (!r.rx.test(url)) continue;
+    let desti = null;
+    try {
+      const u = new URL(url);
+      if (r.ru) {
+        const m = u.pathname.match(/\/RU=([^/]+)\//);
+        desti = m ? decodeURIComponent(m[1]) : null;
+      } else {
+        for (const q of r.q) { const v = u.searchParams.get(q); if (v) { desti = v; break; } }
+      }
+      if (desti && r.bing) {
+        let b = desti.slice(2).replace(/-/g, "+").replace(/_/g, "/");
+        while (b.length % 4) b += "=";
+        desti = atob(b);
+      }
+      const d = new URL(desti);
+      if (d.protocol === "http:" || d.protocol === "https:") return { desti: d.href, nom: r.nom };
+    } catch (e) { /* no és una adreça */ }
+    return null;
+  }
+  return null;
+};
+
+/* ---- El resum de la setmana: de quines empreses eren les galetes ---- */
+
+MG.EMPRESES = [
+  ["Google", /^(_ga|_ga_.*|_gid|_gat.*|__utm[a-z]|_gcl_.*|IDE|__gads|__gpi|__gsas|DSID|NID|VISITOR_INFO1_LIVE|YSC|test_cookie)$/,
+    /(^|\.)(google|doubleclick|googlesyndication|googleadservices|googletagmanager|google-analytics|youtube)\./],
+  ["Meta", /^(_fbp|_fbc|datr|fr)$/, /(^|\.)(facebook|instagram|fbcdn)\./],
+  ["Microsoft", /^(_uetsid|_uetvid|_clck|_clsk|MUID|ANONCHK|CLID|SM|MR)$/, /(^|\.)(bing|clarity|msn)\./],
+  ["TikTok", /^(_ttp|_tt_enable_cookie|ttwid)$/, /(^|\.)tiktok\./],
+  ["X (Twitter)", /^(muc_ads|personalization_id|guest_id.*)$/, /(^|\.)(twitter\.com|x\.com|ads-twitter\.com)$/],
+  ["LinkedIn", /^(li_sugr|bcookie|bscookie|lidc|UserMatchHistory|AnalyticsSyncHistory|li_fat_id)$/, /(^|\.)linkedin\./],
+  ["Pinterest", /^(_pin_unauth|_pinterest_ct_ua|_pinterest_sess)$/, /(^|\.)pinterest\./],
+  ["Snap", /^(_scid|sc_at)$/, /(^|\.)snapchat\./],
+  ["Criteo", /^cto_.*$/, /(^|\.)criteo\./],
+  ["Adobe", /^(s_ecid|AMCV_.*|s_vi|demdex)$/, /(^|\.)(demdex|omtrdc|everesttech)\./],
+  ["Hotjar", /^_hj.*$/, /(^|\.)hotjar\./],
+  ["HubSpot", /^(hubspotutk|__hstc|__hssc|__hssrc)$/, /(^|\.)hubspot\./],
+  ["Amazon", /^(ad-id|ad-privacy)$/, /(^|\.)amazon-adsystem\./],
+];
+MG.empresa = function (nom, domini) {
+  const dom = String(domini || "").replace(/^\./, "").toLowerCase();
+  for (const [e, rNom, rDom] of MG.EMPRESES) if (rNom.test(nom || "") || rDom.test(dom)) return e;
+  return "Altres";
+};
+
+// La setmana d'una data: el dilluns, com a text (AAAA-MM-DD, hora local).
+MG.setmana = function (ara = new Date()) {
+  const d = new Date(ara.getFullYear(), ara.getMonth(), ara.getDate());
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+MG.resumBuit = (setmana) => ({ setmana, galetes: 0, empreses: {}, gravadors: 0, espies: 0, rebots: 0 });
+// Suma una cosa menjada al resum. Si ha canviat la setmana, la d'abans passa a «anterior».
+MG.suma = function (estat, clau, empresa, ara = new Date()) {
+  const setmana = MG.setmana(ara);
+  if (!estat.resum || estat.resum.setmana !== setmana) {
+    if (estat.resum && estat.resum.setmana) estat.anterior = estat.resum;
+    estat.resum = MG.resumBuit(setmana);
+  }
+  estat.resum[clau] = (estat.resum[clau] || 0) + 1;
+  if (empresa) estat.resum.empreses[empresa] = (estat.resum.empreses[empresa] || 0) + 1;
+  return estat;
+};
+// El dilluns que ve a les 9 del matí (quan surt l'avís del resum).
+MG.properDilluns = function (ara = new Date()) {
+  const d = new Date(ara.getFullYear(), ara.getMonth(), ara.getDate(), 9, 0, 0);
+  while (d.getDay() !== 1 || d.getTime() <= ara.getTime()) d.setDate(d.getDate() + 1);
+  return d.getTime();
+};
+// Les empreses d'un resum, de més a menys, amb «Altres» al final.
+MG.empresesOrdenades = function (r) {
+  const llista = Object.entries((r && r.empreses) || {}).filter(([e]) => e !== "Altres").sort((a, b) => b[1] - a[1]);
+  const altres = ((r && r.empreses) || {}).Altres || 0;
+  return altres ? [...llista, ["Altres", altres]] : llista;
+};
+
+// El resum en una frase: «Google 312, Meta 140, Microsoft 58… i 4 gravadors, 9 espies i 12 rebots.»
+MG.textResum = function (r) {
+  const emp = MG.empresesOrdenades(r).slice(0, 4).map(([e, n]) => `${e} ${n}`).join(", ");
+  const extra = [[r.gravadors, "gravador", "gravadors"], [r.espies, "espia de correu", "espies de correu"], [r.rebots, "rebot", "rebots"]]
+    .filter(([n]) => n).map(([n, u, v]) => `${n} ${n === 1 ? u : v}`);
+  const cua = extra.length ? (extra.length > 1 ? extra.slice(0, -1).join(", ") + " i " + extra[extra.length - 1] : extra[0]) : "";
+  return (emp ? `Galetes: ${emp}.` : "") + (cua ? ` També m'he menjat ${cua}.` : "");
+};
+
+// Una galeta vella: d'un web on no vas fa més de «dies» dies.
+MG.esVell = (darrera, dies, ara = Date.now()) => dies > 0 && ara - darrera > dies * 864e5;
 
 // Hash de text (cyrb53): el mateix text dona sempre el mateix número.
 MG.hash = function (s) {

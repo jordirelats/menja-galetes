@@ -17,6 +17,16 @@ const pestanyes = new Map();   // tabId -> {lloc, galetes:[], funcionament:Set, 
 const pendents = new Map();    // lloc -> temporitzador per menjar-se-les
 const disfresses = new Map();  // lloc -> disfressa (per a les capçaleres)
 let llocsProtegits = new Set();
+// Les galetes velles: quan vas per última vegada a cada web (vegeu menjaVelles).
+let visites = {};
+let visitesDesDe = Date.now();
+let desantVisites = null;
+// El resum de la setmana (vegeu MG.suma).
+const resumEstat = { resum: null, anterior: null };
+let desantResum = null;
+// Webs sense disfressa durant una estona (el botó «Compara-la sense disfressa»): lloc -> fins quan.
+const realTemporal = new Map();
+const temporal = (lloc) => (realTemporal.get(lloc) || 0) > Date.now();
 
 /* ---- Configuració ---- */
 
@@ -46,8 +56,9 @@ async function carregaConfig() {
 
 // La configuració que va a cada pàgina. «confianca» hi porta també els webs automàtics.
 function perAPagina() {
-  const { actiu, avisos, identificador, disfressa, pais, falseja, confianca, realAuto, secret, epoch, epochLloc, paisIP, versio } = cfg;
-  return { actiu, avisos, identificador, disfressa, pais, falseja, confianca, realAuto, secret, epoch, epochLloc, paisIP, versio };
+  const { actiu, avisos, identificador, disfressa, pais, falseja, confianca, secret, epoch, epochLloc, paisIP, versio, gpc } = cfg;
+  const realAuto = [...cfg.realAuto, ...[...realTemporal.keys()].filter(temporal)];
+  return { actiu, avisos, identificador, disfressa, pais, falseja, confianca, realAuto, secret, epoch, epochLloc, paisIP, versio, gpc };
 }
 
 async function registra() {
@@ -76,7 +87,7 @@ function disfressaDe(lloc) {
 }
 
 const clauGaleta = (c) => `${c.domain.replace(/^\./, "")}|${c.name}`;
-const confiat = (lloc) => MG.esConfiat(lloc, cfg.confianca) || cfg.realAuto.includes(lloc);
+const confiat = (lloc) => MG.esConfiat(lloc, cfg.confianca) || cfg.realAuto.includes(lloc) || temporal(lloc);
 // Dels webs de confiança de l'usuari no es toca res. Als «reals» (bancs, governs, webs amb
 // contrasenya o amb sistemes contra el frau) no hi ha disfressa, però les galetes de
 // tercers i de seguiment se les menja igualment.
@@ -84,28 +95,31 @@ const deConfianca = (lloc) => !!lloc && (cfg.confianca || []).some((w) => MG.llo
 // Als webs de confiança tampoc no hi ha disfressa, i s'hi tracten les galetes com als «reals».
 // La confiança només compta quan el web és el de dalt: si surt dins d'un altre (un vídeo de
 // YouTube en un diari), és un tercer més.
-const esReal = (host) => !!host && (MG.esIdentitatReal(host) || cfg.realAuto.includes(MG.lloc(host)) || deConfianca(MG.lloc(host)));
+const esReal = (host) => !!host && (MG.esIdentitatReal(host) || cfg.realAuto.includes(MG.lloc(host)) || deConfianca(MG.lloc(host)) || temporal(MG.lloc(host)));
 
 /* ---- Pestanyes ---- */
 
-const estatBuit = (lloc) => ({ lloc, galetes: [], funcionament: new Set(), avis: null, pendent: null });
+const estatBuit = (lloc) => ({ lloc, galetes: [], funcionament: new Set(), avis: null, pendent: null, gravadors: [], espies: [], espiesN: 0 });
 
 // Quan la pestanya demana un web nou: encara no hi és (pot ser una baixada, o no arribar mai).
 // Les galetes d'aquesta càrrega s'apunten a part, a «pendent».
 function preparaPestanya(tabId, lloc) {
   let p = pestanyes.get(tabId);
   if (!p) { p = estatBuit(""); pestanyes.set(tabId, p); }
-  p.pendent = p.lloc === lloc ? null : { lloc, galetes: [], funcionament: new Set() };
+  p.pendent = p.lloc === lloc ? null : { lloc, galetes: [], funcionament: new Set(), gravadors: [], espies: [], espiesN: 0 };
   if (pendents.has(lloc)) { clearTimeout(pendents.get(lloc)); pendents.delete(lloc); }
 }
 
 // Quan la pàgina ja hi és (canvia l'adreça de la pestanya): ara sí, el web d'abans ha marxat.
 function estatPestanya(tabId, lloc) {
+  visita(lloc);
   let p = pestanyes.get(tabId);
   if (!p || p.lloc !== lloc) {
     const vell = p ? p.lloc : "";
     const nou = estatBuit(lloc);
-    if (p && p.pendent && p.pendent.lloc === lloc) { nou.galetes = p.pendent.galetes; nou.funcionament = p.pendent.funcionament; }
+    if (p && p.pendent && p.pendent.lloc === lloc) {
+      for (const k of ["galetes", "funcionament", "gravadors", "espies", "espiesN"]) nou[k] = p.pendent[k];
+    }
     pestanyes.set(tabId, nou);
     p = nou;
     if (vell) potserMenja(vell);
@@ -128,7 +142,72 @@ function apuntDe(tabId, lloc) {
 function anota(tabId, lloc, entrada) {
   const p = apuntDe(tabId, lloc);
   if (!p) return;
-  if (!p.galetes.some((g) => g.nom === entrada.nom && g.domini === entrada.domini)) p.galetes.push(entrada);
+  if (!p.galetes.some((g) => g.nom === entrada.nom && g.domini === entrada.domini)) {
+    p.galetes.push(entrada);
+    compta("galetes", MG.empresa(entrada.nom, entrada.domini));
+  }
+}
+
+// Un gravador o un espia menjat en aquesta pestanya (per a la finestreta). Torna si és nou.
+function apunta(tabId, lloc, clau, nom) {
+  const p = apuntDe(tabId, lloc);
+  if (!p) return true;
+  if (clau === "espies") p.espiesN = (p.espiesN || 0) + 1;
+  if (p[clau].includes(nom)) return false;
+  p[clau].push(nom);
+  return true;
+}
+
+// Una cosa menjada més al resum de la setmana.
+function compta(clau, empresa) {
+  MG.suma(resumEstat, clau, empresa);
+  clearTimeout(desantResum);
+  desantResum = setTimeout(() => browser.storage.local.set({ resum: resumEstat.resum, resumAnterior: resumEstat.anterior }), 1500);
+}
+
+// Quan vas a un web (per saber quines galetes són velles).
+function visita(lloc) {
+  if (!lloc) return;
+  visites[lloc] = Date.now();
+  clearTimeout(desantVisites);
+  desantVisites = setTimeout(() => browser.storage.local.set({ visites }), 3000);
+}
+
+// Les galetes que ja hi havia en instal·lar-la (protegides, perquè no perdessis cap sessió):
+// les dels webs on no vas fa més de cfg.velles dies, se les menja. Les dels webs de confiança,
+// els oberts, i els pagaments, bancs i sistemes contra el frau, no.
+async function menjaVelles(ara = Date.now()) {
+  if (!cfg.actiu || !cfg.velles) return 0;
+  cfg.protegides = new Set((await browser.storage.local.get("protegides")).protegides || []);
+  llocsProtegits = new Set([...cfg.protegides].map((k) => MG.lloc(k.split("|")[0])));
+  let n = 0;
+  for (const lloc of [...llocsProtegits]) {
+    if (!lloc || obert(lloc) || deConfianca(lloc) || MG.esProtegitFrau(lloc)) continue;
+    if (!MG.esVell(visites[lloc] || visitesDesDe, cfg.velles, ara)) continue;
+    n += await menja(lloc, { protegides: true });
+  }
+  return n;
+}
+
+// Cada dilluns a les 9 (o en obrir el Firefox, si ja han passat): el resum de la setmana passada.
+async function avisaResum() {
+  const setmana = MG.setmana();
+  if (Date.now() < new Date(`${setmana}T09:00:00`).getTime()) return;
+  const { resumAvisat } = await browser.storage.local.get("resumAvisat");
+  if (resumAvisat === setmana) return;
+  if (resumEstat.resum && resumEstat.resum.setmana !== setmana) {
+    resumEstat.anterior = resumEstat.resum;
+    resumEstat.resum = MG.resumBuit(setmana);
+  }
+  await browser.storage.local.set({ resumAvisat: setmana, resum: resumEstat.resum, resumAnterior: resumEstat.anterior });
+  const r = resumEstat.anterior;
+  if (!cfg.resumAvis || !r || !r.galetes || r.setmana !== MG.setmana(new Date(Date.now() - 7 * 864e5))) return;
+  browser.notifications.create("resum", {
+    type: "basic",
+    iconUrl: browser.runtime.getURL("icones/galeta-96.png"),
+    title: `La setmana passada em vaig menjar ${r.galetes} galetes`,
+    message: MG.textResum(r),
+  });
 }
 
 browser.tabs.onUpdated.addListener(async (tabId, canvi) => {
@@ -202,7 +281,7 @@ async function menja(lloc, { obertes = false, protegides = false } = {}) {
       const det = { url, name: c.name, storeId: c.storeId };
       if (c.partitionKey) det.partitionKey = c.partitionKey;
       if (c.firstPartyDomain) det.firstPartyDomain = c.firstPartyDomain;
-      try { if (await browser.cookies.remove(det)) n++; } catch (e) { /* res */ }
+      try { if (await browser.cookies.remove(det)) { n++; compta("galetes", MG.empresa(c.name, c.domain)); } } catch (e) { /* res */ }
     }
   }
   // Les galetes amagades (localStorage, IndexedDB). Als webs on ja hi havia una sessió
@@ -287,6 +366,11 @@ browser.webRequest.onBeforeRequest.addListener(detectaAntifrau, { urls: ["<all_u
 async function netejaEnllac(det) {
   await llest;
   if (!cfg.actiu || det.method !== "GET" || det.tabId < 0) return {};
+  // Un rebot (l.facebook.com/l.php?u=…, google.com/url?q=…): directament al destí.
+  if (det.type === "main_frame" && cfg.rebots) {
+    const r = MG.destiRebot(det.url);
+    if (r) { compta("rebots"); return { redirectUrl: MG.netejaUrl(r.desti) || r.desti }; }
+  }
   const lloc = det.type === "main_frame" ? MG.llocDeUrl(det.url) : llocSuperiorDe(det);
   if (!lloc) return {};
   const net = MG.netejaUrl(det.url);
@@ -294,6 +378,34 @@ async function netejaEnllac(det) {
 }
 browser.webRequest.onBeforeRequest.addListener(netejaEnllac, { urls: ["<all_urls>"], types: ["main_frame", "sub_frame"] }, ["blocking"]);
 browser.webRequest.onErrorOccurred.addListener(detectaAntifrau, { urls: ["<all_urls>"] });
+
+// Els gravadors de sessió i els píxels espia dels correus: no es carreguen (llevat que siguis al
+// web del mateix gravador).
+async function atura(det) {
+  await llest;
+  if (!cfg.actiu || det.type === "main_frame") return {};
+  let host = "";
+  try { host = new URL(det.url).hostname; } catch (e) { return {}; }
+  const hostSup = hostSuperiorDe(det);
+  const lloc = MG.lloc(hostSup);
+  if (cfg.gravadors) {
+    const g = MG.gravadorDe(host);
+    if (g && !MG.gravadorDe(hostSup)) {
+      if (apunta(det.tabId, lloc, "gravadors", g)) compta("gravadors");
+      return { cancel: true };
+    }
+  }
+  if (cfg.espies) {
+    const e = MG.espiaDe(det.url);
+    if (e) {
+      apunta(det.tabId, lloc, "espies", e);
+      compta("espies");
+      return { cancel: true };
+    }
+  }
+  return {};
+}
+browser.webRequest.onBeforeRequest.addListener(atura, { urls: ["<all_urls>"] }, ["blocking"]);
 
 // Afegeix la disfressa al començament de l'script d'un treballador mentre baixa.
 function injectaTreballador(requestId, codi) {
@@ -328,6 +440,10 @@ async function abansEnviar(det) {
   await llest;
   if (!cfg.actiu) return {};
   const hs = det.requestHeaders;
+  // «No venguis les meves dades» (GPC), a tots els webs.
+  const gpc = cfg.gpc && !hs.some((h) => h.name.toLowerCase() === "sec-gpc");
+  if (gpc) hs.push({ name: "Sec-GPC", value: "1" });
+  const fet = gpc ? { requestHeaders: hs } : {};
   const dest = ((hs.find((h) => h.name.toLowerCase() === "sec-fetch-dest") || {}).value || "").toLowerCase();
   const treballador = /^(worker|sharedworker|serviceworker)$/.test(dest);
   let hostSup = hostSuperiorDe(det);
@@ -339,18 +455,18 @@ async function abansEnviar(det) {
     if (!confiatHost(hostSup) && MG.esBucle(carregues, det.tabId, det.url)) {
       avisaBucle(lloc);
       marcaReal(lloc, det.tabId, true);
-      return {};
+      return fet;
     }
   }
   const hostReq = new URL(det.url).hostname;
   // Sense disfressa si el web de dalt és de confiança o real, o si la petició va a un banc,
   // un pagament o un sistema contra el frau. (Un botó de Facebook dins d'un diari, en canvi,
   // va disfressat com el diari.)
-  if (!lloc || confiatHost(hostSup) || MG.esProtegitFrau(hostReq)) return {};
+  if (!lloc || confiatHost(hostSup) || MG.esProtegitFrau(hostReq)) return fet;
   // Un sistema contra el frau o de verificació d'identitat: aquest web, sense disfressa.
   if (MG.esAntifrau(new URL(det.url).hostname)) {
     marcaReal(lloc, det.tabId, true);
-    return {};
+    return fet;
   }
   const d = disfressaDe(lloc);
   const f = cfg.falseja;
@@ -543,7 +659,12 @@ browser.notifications.onClicked.addListener(async (id) => {
   }
 });
 
-browser.alarms.onAlarm.addListener(async (a) => { await llest; if (a.name === "pais") comprovaPais(); });
+browser.alarms.onAlarm.addListener(async (a) => {
+  await llest;
+  if (a.name === "pais") comprovaPais();
+  if (a.name === "velles") menjaVelles();
+  if (a.name === "resum") { await avisaResum(); browser.alarms.create("resum", { when: MG.properDilluns() }); }
+});
 
 /* ---- «Menja-te-les totes ara»: l'hàmster i la recàrrega ---- */
 
@@ -599,7 +720,20 @@ browser.runtime.onMessage.addListener(async (m, sender) => {
       galetes: p.galetes || [],
       funcionament: [...(p.funcionament || [])],
       avis: p.avis || null,
+      gravadors: p.gravadors || [], espies: p.espies || [], espiesN: p.espiesN || 0,
+      resum: resumEstat.resum && resumEstat.resum.setmana === MG.setmana() ? resumEstat.resum : null,
+      resumAnterior: resumEstat.anterior,
     };
+  }
+  if (m.tipus === "menjaVelles") return { menjades: await menjaVelles(m.ara) };
+  if (m.tipus === "senseDisfressa") {
+    // Un web sense disfressa durant uns minuts (per comparar la prova de la disfressa).
+    const minuts = Math.min(Math.max(Number(m.minuts) || 15, 1), 60);
+    realTemporal.set(m.lloc, Date.now() + minuts * 60000);
+    disfresses.delete(m.lloc);
+    await registra();
+    setTimeout(async () => { realTemporal.delete(m.lloc); disfresses.delete(m.lloc); await registra(); }, minuts * 60000 + 500);
+    return { fins: realTemporal.get(m.lloc) };
   }
   if (m.tipus === "menjaAra") {
     cfg.epochLloc[m.lloc] = (cfg.epochLloc[m.lloc] || 0) + 1;
@@ -677,6 +811,12 @@ async function arrenca() {
   codiComu = await (await fetch(browser.runtime.getURL("lib/comu.js"))).text();
   codiPagina = await (await fetch(browser.runtime.getURL("lib/pagina.js"))).text();
   await carregaConfig();
+  const g = await browser.storage.local.get(["visites", "visitesDesDe", "resum", "resumAnterior"]);
+  visites = g.visites || {};
+  visitesDesDe = g.visitesDesDe || Date.now();
+  if (!g.visitesDesDe) await browser.storage.local.set({ visitesDesDe });
+  resumEstat.resum = g.resum || null;
+  resumEstat.anterior = g.resumAnterior || null;
   // És la primera vegada si encara no hi ha la marca d'instal·lada (no depèn de quan arribi onInstalled).
   const perInstallar = !(await browser.storage.local.get("installada")).installada;
   if (perInstallar) {
@@ -691,6 +831,9 @@ async function arrenca() {
   if (!perInstallar) await neteja();
   browser.alarms.create("pais", { periodInMinutes: cfg.minutsPais });
   comprovaPais();
+  browser.alarms.create("velles", { delayInMinutes: 10, periodInMinutes: 24 * 60 });
+  browser.alarms.create("resum", { when: MG.properDilluns() });
+  avisaResum();
 }
 
 // Arrenca de seguida; els escoltadors esperen «llest» abans de fer res.

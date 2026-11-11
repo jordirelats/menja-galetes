@@ -81,6 +81,8 @@ function MG_pagina(MG, cfg) {
       try { const o = obj && obj[nom]; if (typeof o === "function") obj[nom] = fn(fer(o)); } catch (e) { /* res */ }
     };
 
+    // «No venguis les meves dades» (GPC): també als webs sense disfressa.
+    if (cfg.gpc) posaGetter(W.Navigator.prototype, "globalPrivacyControl", () => true);
     galetesJS(win, W, fn);
     if (real) return;
 

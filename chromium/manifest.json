@@ -6,24 +6,63 @@
   "description": "Es menja la primera galeta i et disfressa perquè els webs s'emportin dades falses. Versió per al Vivaldi, el Chrome i el Brave.",
   "minimum_chrome_version": "138",
   "permissions": [
-    "alarms", "browsingData", "cookies", "declarativeNetRequest", "declarativeNetRequestWithHostAccess",
-    "notifications", "scripting", "storage", "tabs", "userScripts", "webNavigation", "webRequest"
+    "alarms",
+    "browsingData",
+    "cookies",
+    "declarativeNetRequest",
+    "declarativeNetRequestWithHostAccess",
+    "notifications",
+    "scripting",
+    "storage",
+    "tabs",
+    "userScripts",
+    "webNavigation",
+    "webRequest"
   ],
-  "host_permissions": ["<all_urls>"],
-  "background": { "service_worker": "fons.js" },
-  "content_scripts": [{
-    "matches": ["<all_urls>"],
-    "js": ["lib/navegador.js", "lib/comu.js", "contingut.js"],
-    "run_at": "document_start",
-    "all_frames": true,
-    "match_about_blank": true,
-    "match_origin_as_fallback": true
-  }],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "fons.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "lib/navegador.js",
+        "lib/comu.js",
+        "contingut.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": true,
+      "match_about_blank": true,
+      "match_origin_as_fallback": true
+    }
+  ],
   "action": {
     "default_title": "Menja galetes",
     "default_popup": "finestreta/finestreta.html",
-    "default_icon": { "96": "icones/galeta-96.png" }
+    "default_icon": {
+      "96": "icones/galeta-96.png"
+    }
   },
-  "options_ui": { "page": "opcions/opcions.html", "open_in_tab": true },
-  "icons": { "96": "icones/galeta-96.png" }
+  "options_ui": {
+    "page": "opcions/opcions.html",
+    "open_in_tab": true
+  },
+  "icons": {
+    "96": "icones/galeta-96.png"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "rebot.html"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    }
+  ]
 }

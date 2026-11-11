@@ -25,6 +25,17 @@ let pestanyes = new Map();   // tabId -> {lloc, origens:[], galetes:[], funciona
 const disfresses = new Map();
 let llocsProtegits = new Set();
 let scriptsUsuari = null;
+// Les galetes velles: quan vas per última vegada a cada web (vegeu menjaVelles).
+let visites = {};
+let visitesDesDe = Date.now();
+let desantVisites = null;
+// El resum de la setmana (vegeu MG.suma).
+const resumEstat = { resum: null, anterior: null };
+let desantResum = null;
+// Webs sense disfressa durant una estona (el botó «Compara-la sense disfressa»): lloc -> fins quan.
+// Es desa a storage.session, perquè el service worker es pot adormir.
+let realTemporal = {};
+const temporal = (lloc) => (realTemporal[lloc] || 0) > Date.now();
 
 /* ---- Configuració ---- */
 
@@ -46,8 +57,9 @@ async function carregaConfig() {
 }
 
 function perAPagina() {
-  const { actiu, avisos, identificador, disfressa, pais, falseja, confianca, realAuto, secret, epoch, epochLloc, paisIP, versio, navegador } = cfg;
-  return { actiu, avisos, identificador, disfressa, pais, falseja, confianca, realAuto, secret, epoch, epochLloc, paisIP, versio, navegador };
+  const { actiu, avisos, identificador, disfressa, pais, falseja, confianca, secret, epoch, epochLloc, paisIP, versio, navegador, gpc } = cfg;
+  const realAuto = [...cfg.realAuto, ...Object.keys(realTemporal).filter(temporal)];
+  return { actiu, avisos, identificador, disfressa, pais, falseja, confianca, realAuto, secret, epoch, epochLloc, paisIP, versio, navegador, gpc };
 }
 
 const disfressaDe = (lloc) => {
@@ -56,9 +68,9 @@ const disfressaDe = (lloc) => {
   return d;
 };
 const clauGaleta = (c) => `${c.domain.replace(/^\./, "")}|${c.name}`;
-const confiat = (lloc) => MG.esConfiat(lloc, cfg.confianca) || cfg.realAuto.includes(lloc);
+const confiat = (lloc) => MG.esConfiat(lloc, cfg.confianca) || cfg.realAuto.includes(lloc) || temporal(lloc);
 const deConfianca = (lloc) => !!lloc && (cfg.confianca || []).some((w) => MG.lloc(w) === lloc);
-const esReal = (host) => !!host && (MG.esIdentitatReal(host) || cfg.realAuto.includes(MG.lloc(host)) || deConfianca(MG.lloc(host)));
+const esReal = (host) => !!host && (MG.esIdentitatReal(host) || cfg.realAuto.includes(MG.lloc(host)) || deConfianca(MG.lloc(host)) || temporal(MG.lloc(host)));
 const hostDe = (url) => { try { const u = new URL(url); return /^https?:$/.test(u.protocol) ? u.hostname : ""; } catch (e) { return ""; } };
 
 /* ---- El codi de pàgina (scripts d'usuari) ---- */
@@ -108,6 +120,25 @@ async function regles() {
     // Bancs, pagaments, governs i sistemes contra el frau: no es toca res.
     { id: 3, priority: 100, action: { type: "allow" }, condition: { requestDomains: protegits, resourceTypes: TOTS } },
   ];
+  const senseDocument = TOTS.filter((t) => t !== "main_frame");
+  // «No venguis les meves dades» (GPC), a tots els webs (també als bancs: per això va per sobre de la 3).
+  if (cfg.gpc) totes.push({ id: 8, priority: 200, action: { type: "modifyHeaders", requestHeaders: [{ header: "sec-gpc", operation: "set", value: "1" }] },
+    condition: { resourceTypes: TOTS } });
+  // Els gravadors de sessió: no es carreguen ni envien res (llevat del seu propi web).
+  if (cfg.gravadors) totes.push({ id: 7, priority: 1, action: { type: "block" },
+    condition: { requestDomains: MG.DOMINIS_GRAVADORS, excludedInitiatorDomains: MG.DOMINIS_GRAVADORS, resourceTypes: senseDocument } });
+  const regex = [];
+  // Els píxels espia dels correus.
+  if (cfg.espies) MG.ESPIES.forEach((e, i) => regex.push({ id: 300 + i, priority: 1, action: { type: "block" },
+    condition: { regexFilter: e.re, resourceTypes: senseDocument } }));
+  // Els rebots dels enllaços: a rebot.html, que en treu el destí i hi va directament.
+  if (cfg.rebots) MG.REBOTS.forEach((r, i) => regex.push({ id: 400 + i, priority: 2,
+    action: { type: "redirect", redirect: { regexSubstitution: chrome.runtime.getURL("rebot.html") + "#\\0" } },
+    condition: { regexFilter: r.re + ".*", resourceTypes: ["main_frame"] } }));
+  // Una expressió que el Chromium no accepti faria fallar totes les regles: es comproven abans.
+  for (const r of regex) {
+    try { if ((await chrome.declarativeNetRequest.isRegexSupported({ regex: r.condition.regexFilter })).isSupported) totes.push(r); } catch (e) { /* fora */ }
+  }
   const ara = (await chrome.declarativeNetRequest.getDynamicRules()).map((r) => r.id);
   await chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds: ara, addRules: cfg.actiu ? totes : [] });
 }
@@ -161,25 +192,28 @@ function desaPestanyes() {
   desant = setTimeout(() => chrome.storage.session.set({ pestanyes: [...pestanyes] }), 150);
 }
 
-const estatBuit = (lloc) => ({ lloc, origens: [], galetes: [], funcionament: [], avis: null, pendent: null });
+const estatBuit = (lloc) => ({ lloc, origens: [], galetes: [], funcionament: [], avis: null, pendent: null, gravadors: [], espies: [], espiesN: 0 });
 
 // Quan la pestanya demana un web nou: encara no hi és (pot ser una baixada). Les galetes
 // d'aquesta càrrega s'apunten a part, a «pendent».
 function preparaPestanya(tabId, lloc, origen) {
   let p = pestanyes.get(tabId);
   if (!p) { p = estatBuit(""); pestanyes.set(tabId, p); }
-  p.pendent = p.lloc === lloc ? null : { lloc, origen, galetes: [], funcionament: [] };
+  p.pendent = p.lloc === lloc ? null : { lloc, origen, galetes: [], funcionament: [], gravadors: [], espies: [], espiesN: 0 };
   chrome.alarms.clear("menja|" + lloc);
   desaPestanyes();
 }
 
 // Quan la pàgina ja hi és: ara sí, el web d'abans ha marxat.
 function estatPestanya(tabId, lloc, origen) {
+  visita(lloc);
   let p = pestanyes.get(tabId);
   if (!p || p.lloc !== lloc) {
     const vell = p ? p.lloc : "";
     const nou = estatBuit(lloc);
-    if (p && p.pendent && p.pendent.lloc === lloc) { nou.galetes = p.pendent.galetes; nou.funcionament = p.pendent.funcionament; }
+    if (p && p.pendent && p.pendent.lloc === lloc) {
+      for (const k of ["galetes", "funcionament", "gravadors", "espies", "espiesN"]) if (p.pendent[k] !== undefined) nou[k] = p.pendent[k];
+    }
     pestanyes.set(tabId, nou);
     p = nou;
     if (vell) potserMenja(vell);
@@ -206,7 +240,79 @@ function anota(tabId, lloc, entrada) {
   if (!p.galetes.some((g) => g.nom === entrada.nom && g.domini === entrada.domini)) {
     p.galetes.push(entrada);
     desaPestanyes();
+    compta("galetes", MG.empresa(entrada.nom, entrada.domini));
   }
+}
+
+// Un gravador o un espia menjat en aquesta pestanya (per a la finestreta). Torna si és nou.
+function apunta(tabId, lloc, clau, nom) {
+  const p = apuntDe(tabId, lloc);
+  if (!p) return true;
+  p[clau] = p[clau] || [];
+  if (clau === "espies") p.espiesN = (p.espiesN || 0) + 1;
+  desaPestanyes();
+  if (p[clau].includes(nom)) return false;
+  p[clau].push(nom);
+  return true;
+}
+
+// Una cosa menjada més al resum de la setmana.
+function compta(clau, empresa) {
+  MG.suma(resumEstat, clau, empresa);
+  clearTimeout(desantResum);
+  desantResum = setTimeout(() => chrome.storage.local.set({ resum: resumEstat.resum, resumAnterior: resumEstat.anterior }), 1000);
+}
+
+// Quan vas a un web (per saber quines galetes són velles).
+function visita(lloc) {
+  if (!lloc) return;
+  visites[lloc] = Date.now();
+  clearTimeout(desantVisites);
+  desantVisites = setTimeout(() => chrome.storage.local.set({ visites }), 1000);
+}
+
+// Les galetes que ja hi havia en instal·lar-la (protegides, perquè no perdessis cap sessió):
+// les dels webs on no vas fa més de cfg.velles dies, se les menja. Les dels webs de confiança,
+// els oberts, i els pagaments, bancs i sistemes contra el frau, no.
+async function menjaVelles(ara = Date.now()) {
+  if (!cfg.actiu || !cfg.velles) return 0;
+  cfg.protegides = new Set((await chrome.storage.local.get("protegides")).protegides || []);
+  llocsProtegits = new Set([...cfg.protegides].map((k) => MG.lloc(k.split("|")[0])));
+  let n = 0;
+  for (const lloc of [...llocsProtegits]) {
+    if (!lloc || obert(lloc) || deConfianca(lloc) || MG.esProtegitFrau(lloc)) continue;
+    if (!MG.esVell(visites[lloc] || visitesDesDe, cfg.velles, ara)) continue;
+    n += await menja(lloc, { protegides: true });
+  }
+  return n;
+}
+
+// Cada dilluns a les 9 (o en obrir el navegador, si ja han passat): el resum de la setmana passada.
+async function avisaResum() {
+  const setmana = MG.setmana();
+  if (Date.now() < new Date(`${setmana}T09:00:00`).getTime()) return;
+  const { resumAvisat } = await chrome.storage.local.get("resumAvisat");
+  if (resumAvisat === setmana) return;
+  if (resumEstat.resum && resumEstat.resum.setmana !== setmana) {
+    resumEstat.anterior = resumEstat.resum;
+    resumEstat.resum = MG.resumBuit(setmana);
+  }
+  await chrome.storage.local.set({ resumAvisat: setmana, resum: resumEstat.resum, resumAnterior: resumEstat.anterior });
+  const r = resumEstat.anterior;
+  if (!cfg.resumAvis || !r || !r.galetes || r.setmana !== MG.setmana(new Date(Date.now() - 7 * 864e5))) return;
+  chrome.notifications.create("resum", {
+    type: "basic", iconUrl: chrome.runtime.getURL("icones/galeta-96.png"),
+    title: `La setmana passada em vaig menjar ${r.galetes} galetes`, message: MG.textResum(r),
+  });
+}
+
+// Un web sense disfressa durant uns minuts, o tornar-lo a disfressar quan s'acaben.
+async function canviaTemporal(lloc, fins) {
+  if (fins) realTemporal[lloc] = fins; else delete realTemporal[lloc];
+  await chrome.storage.session.set({ realTemporal });
+  disfresses.delete(lloc);
+  await registra();
+  for (const [tabId, p] of pestanyes) if (p.lloc === lloc) await capcaleres(tabId, lloc);
 }
 
 const obert = (lloc) => [...pestanyes.values()].some((p) => p.lloc === lloc);
@@ -239,7 +345,7 @@ async function menja(lloc, { obertes = false, protegides = false } = {}) {
       }
       const det = { url: (c.secure ? "https://" : "http://") + c.domain.replace(/^\./, "") + c.path, name: c.name, storeId: c.storeId };
       if (c.partitionKey) det.partitionKey = c.partitionKey;
-      try { if (await chrome.cookies.remove(det)) n++; } catch (e) { /* res */ }
+      try { if (await chrome.cookies.remove(det)) { n++; compta("galetes", MG.empresa(c.name, c.domain)); } } catch (e) { /* res */ }
     }
   }
   if (!real && (protegides || !llocsProtegits.has(lloc))) {
@@ -427,8 +533,23 @@ async function tracta(m, sender) {
       const p = pestanyes.get(m.tabId) || {};
       const { ipReal, coloReal } = await chrome.storage.local.get(["ipReal", "coloReal"]);
       return { ipReal: ipReal || null, coloReal: coloReal || null, cfg: perAPagina(), confiancaUsuari: cfg.confianca, realAuto: cfg.realAuto, scriptsUsuari,
-        lloc: p.lloc || m.lloc || "", galetes: p.galetes || [], funcionament: p.funcionament || [], avis: p.avis || null };
+        lloc: p.lloc || m.lloc || "", galetes: p.galetes || [], funcionament: p.funcionament || [], avis: p.avis || null,
+        gravadors: p.gravadors || [], espies: p.espies || [], espiesN: p.espiesN || 0,
+        resum: resumEstat.resum && resumEstat.resum.setmana === MG.setmana() ? resumEstat.resum : null, resumAnterior: resumEstat.anterior };
     }
+    case "menjaVelles":
+      return { menjades: await menjaVelles(m.ara) };
+    case "senseDisfressa": {
+      // Un web sense disfressa durant uns minuts (per comparar la prova de la disfressa).
+      const minuts = Math.min(Math.max(Number(m.minuts) || 15, 1), 60);
+      const fins = Date.now() + minuts * 60000;
+      await canviaTemporal(m.lloc, fins);
+      chrome.alarms.create("temporal|" + m.lloc, { when: fins + 500 });
+      return { fins };
+    }
+    case "rebot":
+      compta("rebots");
+      return null;
     case "menjaAra": {
       cfg.epochLloc[m.lloc] = (cfg.epochLloc[m.lloc] || 0) + 1;
       await chrome.storage.local.set({ epochLloc: cfg.epochLloc });
@@ -494,6 +615,15 @@ async function inicia() {
   const s = await chrome.storage.session.get(["pestanyes", "scriptsUsuari"]);
   if (s.pestanyes) pestanyes = new Map(s.pestanyes);
   if (typeof s.scriptsUsuari === "boolean") scriptsUsuari = s.scriptsUsuari;
+  realTemporal = (await chrome.storage.session.get("realTemporal")).realTemporal || {};
+  const g = await chrome.storage.local.get(["visites", "visitesDesDe", "resum", "resumAnterior"]);
+  visites = g.visites || {};
+  visitesDesDe = g.visitesDesDe || Date.now();
+  if (!g.visitesDesDe) await chrome.storage.local.set({ visitesDesDe });
+  resumEstat.resum = g.resum || null;
+  resumEstat.anterior = g.resumAnterior || null;
+  if (!(await chrome.alarms.get("velles"))) chrome.alarms.create("velles", { delayInMinutes: 10, periodInMinutes: 24 * 60 });
+  if (!(await chrome.alarms.get("resum"))) chrome.alarms.create("resum", { when: MG.properDilluns() });
   // Les regles i el script d'usuari es queden desats entre despertars: només es refan en
   // instal·lar-la, en arrencar el navegador i quan canvia la configuració.
   if (!(await chrome.alarms.get("pais"))) chrome.alarms.create("pais", { periodInMinutes: cfg.minutsPais });
@@ -525,6 +655,7 @@ chrome.runtime.onStartup.addListener(async () => {
   }
   await neteja();
   comprovaPais();
+  avisaResum();
 });
 
 chrome.webNavigation.onBeforeNavigate.addListener(async (det) => {
@@ -599,7 +730,22 @@ chrome.alarms.onAlarm.addListener(async (a) => {
   await llest;
   if (a.name === "pais") comprovaPais();
   else if (a.name.startsWith("menja|")) await menja(a.name.slice(6), {});
+  else if (a.name.startsWith("temporal|")) await canviaTemporal(a.name.slice(9), 0);
+  else if (a.name === "velles") await menjaVelles();
+  else if (a.name === "resum") { await avisaResum(); chrome.alarms.create("resum", { when: MG.properDilluns() }); }
 });
+
+// Els gravadors i els espies que les regles no han deixat carregar: s'apunten per a la finestreta.
+chrome.webRequest.onErrorOccurred.addListener(async (det) => {
+  if (det.error !== "net::ERR_BLOCKED_BY_CLIENT" || det.type === "main_frame") return;
+  await llest;
+  const pt = pestanyes.get(det.tabId) || {};
+  const lloc = (pt.pendent && pt.pendent.lloc) || pt.lloc || MG.lloc(hostDe(det.initiator || ""));
+  const g = cfg.gravadors && MG.gravadorDe(hostDe(det.url));
+  if (g) { if (apunta(det.tabId, lloc, "gravadors", g)) compta("gravadors"); return; }
+  const e = cfg.espies && MG.espiaDe(det.url);
+  if (e) { apunta(det.tabId, lloc, "espies", e); compta("espies"); }
+}, { urls: ["<all_urls>"] });
 
 chrome.webRequest.onResponseStarted.addListener(galetesResposta, { urls: ["<all_urls>"] }, ["responseHeaders", "extraHeaders"]);
 chrome.webRequest.onBeforeRequest.addListener(detectaAntifrau, { urls: ["<all_urls>"] });

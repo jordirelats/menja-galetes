@@ -13,7 +13,7 @@ DESTI = ARREL / "construit" / "menja-galetes-chromium"
 if DESTI.exists():
     shutil.rmtree(DESTI)
 DESTI.mkdir(parents=True)
-for nom in ("manifest.json", "fons.js", "pagina.js", "contingut.js"):
+for nom in ("manifest.json", "fons.js", "pagina.js", "contingut.js", "rebot.html", "rebot.js"):
     shutil.copy2(ARREL / "chromium" / nom, DESTI / nom)
 (DESTI / "lib").mkdir()
 for nom in ("comu.js", "navegador.js", "monstre.js"):

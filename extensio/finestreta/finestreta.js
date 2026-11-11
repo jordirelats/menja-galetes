@@ -100,6 +100,56 @@ async function pestanyaActual() {
   return t;
 }
 
+// Els gravadors i els espies que s'ha menjat en aquesta pestanya.
+function aturats(e) {
+  const fora = [];
+  if ((e.gravadors || []).length) {
+    fora.push(h("div.aturat", "🎥 ", h("b", "Aquest web et volia gravar"), ` · ${e.gravadors.join(", ")}. Ha gravat: res.`));
+  }
+  if (e.espiesN) {
+    fora.push(h("div.aturat", "👁 ", h("b", `${e.espiesN} ${e.espiesN === 1 ? "espia de correu menjat" : "espies de correu menjats"}`),
+      ` (${e.espies.join(", ")}): no saben que has obert el correu.`));
+  }
+  return fora;
+}
+
+// El resum de la setmana (o el de la passada, si aquesta encara és buida).
+function seccioResum(e) {
+  const r = e.resum && e.resum.galetes ? e.resum : null;
+  const x = r || (e.resumAnterior && e.resumAnterior.galetes ? e.resumAnterior : null);
+  if (!x) return null;
+  const llista = MG.empresesOrdenades(x);
+  const top = llista.filter(([n]) => n !== "Altres").slice(0, 4);
+  const altres = llista.slice(top.length).reduce((t, [, n]) => t + n, 0);
+  if (altres) top.push(["Altres", altres]);
+  const max = Math.max(1, ...top.map(([, n]) => n));
+  const div = h("div.resum", h("div.titol-llista", r ? "Aquesta setmana" : "La setmana passada"),
+    h("div.resum-t", "M'he menjat ", h("b", `${x.galetes} galetes`)));
+  for (const [nom, n] of top) {
+    const barra = h("i");
+    barra.style.width = `${Math.round((n / max) * 100)}%`;
+    div.append(h("div.barra", h("span.bn", nom), h("span.bb", barra), h("span.bx", n)));
+  }
+  const extra = MG.textResum(Object.assign({}, x, { empreses: {} })).trim();
+  if (extra) div.append(h("div.nota", extra));
+  return div;
+}
+
+// Prova la disfressa: Cover Your Tracks, de l'EFF, amb disfressa i sense.
+const PROVA = "https://coveryourtracks.eff.org/";
+function seccioProva() {
+  const amb = h("button.enllac", "Prova la disfressa");
+  amb.onclick = () => browser.tabs.create({ url: PROVA }).then(() => window.close());
+  const sense = h("button.enllac", "Compara-la sense disfressa");
+  sense.onclick = async () => {
+    await browser.runtime.sendMessage({ tipus: "senseDisfressa", lloc: "eff.org", minuts: 15 });
+    await browser.tabs.create({ url: PROVA });
+    window.close();
+  };
+  return h("div.prova", "🧪 ", amb, " · ", sense,
+    h("div.nota", "Una prova de l'EFF que mira si el teu navegador es pot reconèixer. Sense disfressa: durant 15 minuts, només en aquella prova."));
+}
+
 function botoInterruptor(el, on) {
   el.classList.toggle("on", !!on);
 }
@@ -154,6 +204,9 @@ async function pinta() {
         h("div.gl", h("code", g.nom), h("s", escurça(g.original || "(buida)")), h("span.fl", "→"), h("b", escurça(g.fals)))
       )));
     }
+    cos.append(...aturats(e));
+    const rc = seccioResum(e);
+    if (rc) cos.append(rc);
     if (!sempre && !xarxa && !auto) {
       const b = h("button.sec", "Ja no hi confio");
       b.onclick = () => browser.runtime.sendMessage({ tipus: "confia", lloc, si: false, tabId: tab.id }).then(() => window.close());
@@ -182,6 +235,7 @@ async function pinta() {
     cos.append(h("div.nota", `I ${e.funcionament.length} de funcionament (${noms}${e.funcionament.length > 2 ? "…" : ""}), fins que tanquis la pestanya.`));
   }
   if (e.avis) cos.append(h("div.nota", `Avís de galetes: ${e.avis.accio} per tu (${e.avis.cmp}).`));
+  cos.append(...aturats(e));
 
   // La disfressa
   const real = { w: screen.width, h: screen.height };
@@ -220,6 +274,10 @@ async function pinta() {
   cos.append(h("div.nota-ip", cfg.pais === "ip"
     ? `La IP de la connexió és la real. Per això la disfressa és ${p ? p.de : "del teu país"}, com la IP, però d'una altra ciutat.`
     : "La IP de la connexió és la real. La disfressa és d'un país qualsevol, i potser no lliga amb la IP."));
+
+  cos.append(seccioProva());
+  const rs = seccioResum(e);
+  if (rs) cos.append(rs);
 
   const menja = h("button.pri", "Menja-te-les totes ara");
   menja.onclick = async () => {

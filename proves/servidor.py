@@ -17,6 +17,10 @@
 /simple?plataforma=1  a més, datr (de Facebook) i UID (un nom genèric).
 /bucle    com el Zoho Mail: si no veu el navegador de sempre (Linux), es torna a carregar.
 /sw-prova un service worker que demana /eco i torna el User-Agent que hi ha arribat.
+/gpc      el que la pàgina veu de navigator.globalPrivacyControl.
+/gravador un gravador de sessió (static.hotjar.com) i un script normal, per comparar.
+/correu   un correu amb un espia (us1.list-manage.com) i una imatge normal.
+/l.php    a l.facebook.com: el comptador d'enllaços (si s'hi arriba, és que no l'ha saltat).
 """
 import json
 import threading
@@ -139,6 +143,31 @@ navigator.serviceWorker.register('/sw.js').then(() => navigator.serviceWorker.re
 }).catch((e) => posa({error: String(e)}));
 </script></body></html>"""
 
+GPC = """<!doctype html><html><head><meta charset="utf-8"></head><body><pre id="info">...</pre><script>
+document.getElementById('info').textContent = JSON.stringify({gpc: navigator.globalPrivacyControl === true});
+</script></body></html>"""
+
+GRAVADOR = """<!doctype html><html><head><meta charset="utf-8"></head><body><pre id="info">...</pre>
+<script src="http://static.hotjar.com:8765/c/hotjar.js"></script>
+<script src="/control.js"></script>
+<script>setTimeout(() => document.getElementById('info').textContent =
+  JSON.stringify({gravador: !!window.__gravador, control: !!window.__control}), 1500);</script>
+</body></html>"""
+
+CORREU = """<!doctype html><html><head><meta charset="utf-8"></head><body><pre id="info">...</pre>
+<p>Ofertes de la setmana</p>
+<script src="http://static.hotjar.com:8765/c/hotjar.js"></script>
+<img id="espia" width="1" height="1" src="http://us1.list-manage.com:8765/track/open.php?u=1&amp;id=2&amp;e=3">
+<img id="normal" width="1" height="1" src="/img.gif">
+<script>const r = {};
+for (const id of ["espia", "normal"]) { const i = document.getElementById(id);
+  i.onload = () => r[id] = "load"; i.onerror = () => r[id] = "error"; if (i.complete) r[id] = i.naturalWidth ? "load" : "error"; }
+setTimeout(() => document.getElementById('info').textContent = JSON.stringify(r), 1500);</script>
+</body></html>"""
+
+GIF = (b"GIF89a\x01\x00\x01\x00\x80\x00\x00\x00\x00\x00\xff\xff\xff!\xf9\x04\x01\x00\x00\x00\x00"
+       b",\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;")
+
 SW_JS = ("onmessage = (e) => fetch('/eco').then((r) => r.json())"
          ".then((j) => e.ports[0].postMessage(j['User-Agent'] || j['user-agent']));")
 
@@ -148,7 +177,7 @@ class Gestor(BaseHTTPRequestHandler):
         pass
 
     def _envia(self, cos, tipus="text/html; charset=utf-8", galetes=()):
-        dades = cos.encode()
+        dades = cos if isinstance(cos, bytes) else cos.encode()
         self.send_response(200)
         self.send_header("Content-Type", tipus)
         self.send_header("Cache-Control", "no-store")
@@ -194,6 +223,20 @@ class Gestor(BaseHTTPRequestHandler):
                                                 "sessio=banc123; Max-Age=86400; Path=/", *extra])
         elif u.path == "/marc-entrada":
             self._envia(SIMPLE % '<iframe src="http://amagat.test:8765/entrada" referrerpolicy="no-referrer"></iframe>')
+        elif u.path == "/gpc":
+            self._envia(GPC)
+        elif u.path == "/gravador":
+            self._envia(GRAVADOR)
+        elif u.path == "/c/hotjar.js":
+            self._envia("window.__gravador = 1;", "text/javascript")
+        elif u.path == "/control.js":
+            self._envia("window.__control = 1;", "text/javascript")
+        elif u.path == "/correu":
+            self._envia(CORREU)
+        elif u.path in ("/track/open.php", "/img.gif"):
+            self._envia(GIF, "image/gif")
+        elif u.path == "/l.php":
+            self._envia(SIMPLE % "<p>rebot no saltat</p>")
         elif u.path == "/bucle":
             self._envia(BUCLE)
         elif u.path == "/sw-prova":

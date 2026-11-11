@@ -12,10 +12,17 @@ const FALSEJA = [
   ["ipCapcaleres", "IP de les capçaleres", "Una IP falsa a X-Forwarded-For, que tampoc no és de ningú, per als webs que se la creuen"],
 ];
 
+// Els interruptors que són una opció de dalt de tot de la configuració.
+const INTERRUPTORS = ["canviPais", "gravadors", "espies", "rebots", "gpc", "resumAvis"];
+
 let config = {};
 
 async function carrega() {
-  const s = await browser.storage.local.get(["config", "paisIP", "realAuto"]);
+  const s = await browser.storage.local.get(["config", "paisIP", "realAuto", "protegides"]);
+  const webs = new Set((s.protegides || []).map((k) => MG.lloc(k.split("|")[0]))).size;
+  document.getElementById("vellesAra").textContent = webs
+    ? `Les que ja tenies en instal·lar-la, que vaig protegir perquè no perdessis cap sessió. Ara n'hi ha de ${webs} webs.`
+    : "Les que ja tenies en instal·lar-la, que vaig protegir perquè no perdessis cap sessió. Ja no en queda cap.";
   document.getElementById("sempreReal").textContent =
     `${MG.SEMPRE_REAL.length} webs fixos: ${MG.SEMPRE_REAL.slice(0, 12).join(", ")}…`;
   const auto = document.getElementById("realAuto");
@@ -39,9 +46,9 @@ async function desa(canvis) {
 
 function pinta() {
   for (const t of document.querySelectorAll(".triador")) {
-    for (const b of t.querySelectorAll(".seg")) b.classList.toggle("on", config[t.dataset.clau] === b.dataset.valor);
+    for (const b of t.querySelectorAll(".seg")) b.classList.toggle("on", String(config[t.dataset.clau]) === b.dataset.valor);
   }
-  document.querySelector("[data-clau='canviPais']").classList.toggle("on", !!config.canviPais);
+  for (const clau of INTERRUPTORS) document.querySelector(`[data-clau='${clau}']`).classList.toggle("on", !!config[clau]);
 
   const fals = document.getElementById("falseja");
   fals.textContent = "";
@@ -76,9 +83,9 @@ function pinta() {
 }
 
 for (const t of document.querySelectorAll(".triador")) {
-  for (const b of t.querySelectorAll(".seg")) b.onclick = () => desa({ [t.dataset.clau]: b.dataset.valor });
+  for (const b of t.querySelectorAll(".seg")) b.onclick = () => desa({ [t.dataset.clau]: t.dataset.num ? Number(b.dataset.valor) : b.dataset.valor });
 }
-document.querySelector("[data-clau='canviPais']").onclick = () => desa({ canviPais: !config.canviPais });
+for (const clau of INTERRUPTORS) document.querySelector(`[data-clau='${clau}']`).onclick = () => desa({ [clau]: !config[clau] });
 document.getElementById("afegeix").onsubmit = (ev) => {
   ev.preventDefault();
   const camp = document.getElementById("nouWeb");

@@ -49,7 +49,7 @@ const nav = spawn(binari, ["--headless=new", "--disable-gpu", "--no-first-run", 
   ...(ambChrome ? ["--enable-unsafe-extension-debugging"] : [`--load-extension=${EXT}`]),
   `--user-data-dir=${perfil}`, `--remote-debugging-port=${PORT}`,
   "--disable-features=HttpsUpgrades,HttpsFirstBalancedModeAutoEnable",
-  "--host-resolver-rules=MAP diari.test 127.0.0.1, MAP www.bancprova.test 127.0.0.1, MAP www.prova.gob.es 127.0.0.1, MAP botiga.test 127.0.0.1, MAP h.online-metrix.net 127.0.0.1, MAP revista.test 127.0.0.1, MAP amagat.test 127.0.0.1, MAP bucle.test 127.0.0.1",
+  "--host-resolver-rules=MAP diari.test 127.0.0.1, MAP www.bancprova.test 127.0.0.1, MAP www.prova.gob.es 127.0.0.1, MAP botiga.test 127.0.0.1, MAP h.online-metrix.net 127.0.0.1, MAP revista.test 127.0.0.1, MAP amagat.test 127.0.0.1, MAP bucle.test 127.0.0.1, MAP static.hotjar.com 127.0.0.1, MAP us1.list-manage.com 127.0.0.1, MAP l.facebook.com 127.0.0.1, MAP vell.test 127.0.0.1",
   "about:blank"], { stdio: "ignore" });
 
 let c;
@@ -277,6 +277,57 @@ try {
   comprova("i ja no es torna a carregar", b13b.carrega < 15 && b13b.carrega === b13.carrega, `càrregues ${b13.carrega} → ${b13b.carrega}`);
   const ra13 = JSON.parse(await alFons("JSON.stringify(cfg.realAuto)"));
   comprova("bucle.test, a la llista automàtica", ra13.includes("bucle.test"), ra13.join(", "));
+
+  // ---- 14. Les idees de l'11/11/2026 ----
+  console.log("\n14. Gravadors, espies, rebots, GPC, galetes velles i el resum");
+  await ves("http://diari.test:8765/gpc", 1200);
+  const g14 = await info();
+  comprova("GPC: la pàgina veu navigator.globalPrivacyControl", g14.gpc === true, JSON.stringify(g14));
+  await ves("http://diari.test:8765/eco", 1000);
+  const eco14 = JSON.parse(await aPagina("document.body.textContent"));
+  const gpcCap = eco14["Sec-GPC"] || eco14["sec-gpc"];
+  comprova("GPC: el web rep Sec-GPC: 1", gpcCap === "1", gpcCap);
+  await ves("http://diari.test:8765/gravador", 2200);
+  const gr14 = await info();
+  comprova("el gravador de sessió (Hotjar) no s'ha carregat, i l'script normal sí", gr14.gravador === false && gr14.control === true, JSON.stringify(gr14));
+  await ves("http://diari.test:8765/correu", 2200);
+  const cor14 = await info();
+  comprova("l'espia del correu (Mailchimp) no s'ha carregat, i la imatge normal sí", cor14.espia === "error" && cor14.normal === "load", JSON.stringify(cor14));
+  // El correu, en una altra pestanya (sense llegir-la: al Vivaldi sense finestra, llegir una pestanya nova es penja);
+  // la finestreta, a la de proves.
+  const { targetId: w14 } = await c.envia("Target.createTarget", { url: "http://diari.test:8765/correu" });
+  await dorm(2500);
+  await ves(`chrome-extension://${id}/finestreta/finestreta.html?web=http://diari.test:8765/correu`, 1800);
+  const text14 = await aPagina("document.body.innerText");
+  comprova("la finestreta diu que el web et volia gravar (Hotjar)", text14.includes("Aquest web et volia gravar") && text14.includes("Hotjar"));
+  comprova("i quants espies de correu s'ha menjat", text14.includes("de correu menjat") && text14.includes("Mailchimp"));
+  comprova("i el resum de la setmana", /aquesta setmana/i.test(text14) && /m'he menjat/i.test(text14));
+  await c.envia("Emulation.setDeviceMetricsOverride", { width: 400, height: 900, deviceScaleFactor: 1, mobile: false }, pag);
+  await dorm(300);
+  const alt14 = await aPagina("document.documentElement.scrollHeight");
+  await c.envia("Emulation.setDeviceMetricsOverride", { width: 400, height: alt14, deviceScaleFactor: 1, mobile: false }, pag);
+  await dorm(300);
+  writeFileSync(join(AQUI, "captures", "finestreta-noves-vivaldi.png"), Buffer.from((await c.envia("Page.captureScreenshot", { format: "png" }, pag)).data, "base64"));
+  await c.envia("Emulation.clearDeviceMetricsOverride", {}, pag);
+  await c.envia("Target.closeTarget", { targetId: w14 });
+  await ves("http://l.facebook.com:8765/l.php?u=http%3A%2F%2Fdiari.test%3A8765%2Fsimple%3Fid%3D7%26utm_source%3Dfb&h=AT0x", 2000);
+  const url14 = await aPagina("location.href");
+  comprova("rebot de Facebook: directament al web, sense el comptador ni utm_", url14 === "http://diari.test:8765/simple?id=7", url14);
+  await ves("http://diari.test:8765/simple", 1200);
+  await alFons(`chrome.cookies.set({url: "http://vell.test:8765/", name: "antiga", value: "1", expirationDate: Date.now() / 1000 + 86400 * 365})`);
+  await alFons(`chrome.storage.local.get("protegides").then((s) => chrome.storage.local.set({protegides: [...(s.protegides || []), "vell.test|antiga", "diari.test|sessio"]}))`);
+  const v14 = await alFons(`tracta({tipus: "menjaVelles", ara: Date.now() + 40 * 864e5}, {}).then(JSON.stringify)`);
+  gs = await galetes();
+  comprova("galetes velles: les d'un web on no vas fa 40 dies, menjades", !gs.some((g) => g.name === "antiga"), v14);
+  comprova("però les d'un web obert es queden", gs.some((g) => g.name === "sessio" && g.domain === "diari.test"));
+  await dorm(1500);
+  const rs14 = JSON.parse(await alFons(`chrome.storage.local.get("resum").then((s) => JSON.stringify(s.resum || {}))`));
+  comprova("el resum compta galetes, gravadors, espies i rebots", rs14.galetes > 0 && rs14.gravadors >= 1 && rs14.espies >= 1 && rs14.rebots >= 1
+    && (rs14.empreses || {}).Google > 0, JSON.stringify(rs14));
+  await alFons(`tracta({tipus: "senseDisfressa", lloc: "diari.test", minuts: 1}, {})`);
+  await ves("http://diari.test:8765/simple", 1500);
+  const t14 = await info();
+  comprova("«Compara-la sense disfressa»: el web va sense disfressa una estona", /Linux/.test(t14.userAgent), t14.userAgent);
 } catch (err) {
   console.log("ERROR:", err.message);
   resultats.push(false);

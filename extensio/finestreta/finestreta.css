@@ -32,3 +32,15 @@ body { width: 400px; }
 .nota-ip { margin: 0 14px 8px; font-size: 12.5px; color: var(--groc-text); background: var(--groc); border: 1px solid var(--groc-vora); border-radius: 8px; padding: 8px 10px; }
 .peu { display: flex; align-items: center; gap: 10px; padding: 10px 14px 14px; border-top: 1px solid var(--linia); margin-top: 4px; }
 .buit { padding: 18px 14px; color: var(--suau); }
+.aturat { margin: 4px 14px 6px; padding: 7px 10px; background: #fff; border-radius: 8px; font-size: 12.5px;
+  box-shadow: 0 1px 3px rgba(74,44,26,.15); color: var(--suau); }
+.aturat b { color: var(--xoco); }
+.prova { margin: 2px 14px 6px; font-size: 13px; }
+.prova .nota { padding: 2px 0 0; }
+button.enllac { background: none; border: 0; padding: 0; color: var(--crosta); font-weight: 700; text-decoration: underline; }
+.resum { border-top: 1px solid var(--linia); margin-top: 6px; padding-bottom: 6px; }
+.resum-t { padding: 0 14px 4px; font-size: 13px; }
+.barra { display: grid; grid-template-columns: 82px 1fr 34px; gap: 8px; align-items: center; padding: 2px 14px; font-size: 12.5px; }
+.bb { background: #F1E6D4; border-radius: 5px; height: 10px; overflow: hidden; }
+.bb i { display: block; height: 100%; background: var(--crosta); border-radius: 5px; }
+.bx { text-align: right; color: var(--suau); font-variant-numeric: tabular-nums; }
