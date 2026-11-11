@@ -127,9 +127,30 @@ async function capcaleres(tabId, host) {
     }
     if (f.idioma) hs.push({ header: "accept-language", operation: "set", value: d.acceptLanguage });
     if (f.ipCapcaleres && d.ip) hs.push({ header: "x-forwarded-for", operation: "set", value: d.ip });
-    if (hs.length) afegeix.push({ id, priority: 1, action: { type: "modifyHeaders", requestHeaders: hs }, condition: { tabIds: [tabId], resourceTypes: TOTS } });
+    if (hs.length) {
+      const accio = { type: "modifyHeaders", requestHeaders: hs };
+      afegeix.push({ id, priority: 1, action: accio, condition: { tabIds: [tabId], resourceTypes: TOTS } });
+      // Les peticions que no són de cap pestanya però les fa el web (el seu service worker, els
+      // treballadors compartits) porten la mateixa disfressa. Si no, el web veu dos navegadors
+      // en la mateixa sessió (el Zoho Mail, llavors, es tornava a carregar sense parar).
+      afegeix.push({ id: idLloc(lloc), priority: 1, action: accio, condition: { tabIds: [-1], initiatorDomains: [lloc], resourceTypes: TOTS } });
+    }
   }
-  try { await chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds: [id], addRules: afegeix }); } catch (e) { /* res */ }
+  const treu = [id];
+  if (lloc) treu.push(idLloc(lloc));
+  try { await chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds: treu, addRules: afegeix }); } catch (e) { /* res */ }
+}
+// El número de la regla de les peticions sense pestanya d'un web (el mateix web, la mateixa regla).
+const idLloc = (lloc) => 200000 + (MG.hash(lloc) % 700000);
+
+// Si la disfressa fa que un web es torni a carregar sense parar: a partir d'ara, sense disfressa.
+const carregues = new Map();
+function avisaBucle(lloc) {
+  chrome.notifications.create("bucle|" + lloc, {
+    type: "basic", iconUrl: chrome.runtime.getURL("icones/galeta-96.png"),
+    title: `${lloc}: ara sense disfressa`,
+    message: `Amb la disfressa, ${lloc} es tornava a carregar sense parar. A partir d'ara hi vas amb el navegador de debò. Les galetes de seguiment i les de tercers, me les continuo menjant.`,
+  });
 }
 
 /* ---- Pestanyes ---- */
@@ -511,6 +532,11 @@ chrome.webNavigation.onBeforeNavigate.addListener(async (det) => {
   await llest;
   const host = hostDe(det.url);
   if (host) preparaPestanya(det.tabId, MG.lloc(host), new URL(det.url).origin);
+  if (host && cfg.actiu && !esReal(host) && MG.esBucle(carregues, det.tabId, det.url)) {
+    avisaBucle(MG.lloc(host));
+    await marcaReal(MG.lloc(host), det.tabId, true);
+    return;
+  }
   await capcaleres(det.tabId, host);
 });
 

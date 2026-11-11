@@ -241,6 +241,18 @@ const llocSuperiorDe = (det) => MG.lloc(hostSuperiorDe(det));
 // Un web de confiança, o que sempre va amb la identitat real (bancs, governs, xarxes…).
 const confiatHost = (host) => !!host && (confiat(MG.lloc(host)) || MG.esIdentitatReal(host));
 
+// Un web disfressat que es torna a carregar sense parar (vegeu MG.esBucle).
+const carregues = new Map();
+function avisaBucle(lloc) {
+  browser.notifications.create("bucle|" + lloc, {
+    type: "basic",
+    iconUrl: browser.runtime.getURL("icones/galeta-96.png"),
+    title: `${lloc}: ara sense disfressa`,
+    message: `Amb la disfressa, ${lloc} es tornava a carregar sense parar. A partir d'ara hi vas amb el navegador de debò. ` +
+      "Les galetes de seguiment i les de tercers, me les continuo menjant.",
+  });
+}
+
 // Un web que ha de veure el navegador de debò a partir d'ara (automàtic).
 const marcant = new Set();
 async function marcaReal(lloc, tabId, recarrega) {
@@ -321,7 +333,15 @@ async function abansEnviar(det) {
   let hostSup = hostSuperiorDe(det);
   if (!hostSup && treballador) hostSup = new URL(det.url).hostname;
   const lloc = MG.lloc(hostSup);
-  if (det.type === "main_frame" && lloc && det.tabId >= 0) preparaPestanya(det.tabId, lloc);
+  if (det.type === "main_frame" && lloc && det.tabId >= 0) {
+    preparaPestanya(det.tabId, lloc);
+    // Si la disfressa fa que el web es torni a carregar sense parar: a partir d'ara, sense.
+    if (!confiatHost(hostSup) && MG.esBucle(carregues, det.tabId, det.url)) {
+      avisaBucle(lloc);
+      marcaReal(lloc, det.tabId, true);
+      return {};
+    }
+  }
   const hostReq = new URL(det.url).hostname;
   // Sense disfressa si el web de dalt és de confiança o real, o si la petició va a un banc,
   // un pagament o un sistema contra el frau. (Un botó de Facebook dins d'un diari, en canvi,

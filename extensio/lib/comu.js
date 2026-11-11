@@ -216,6 +216,21 @@ MG.esConfiat = function (lloc, llista) {
 
 /* ---- Atzar ---------------------------------------------------------------- */
 
+// Un web disfressat que es torna a carregar sol sense parar (la mateixa adreça 5 vegades en
+// 30 s): la disfressa el trenca. El Zoho Mail, per exemple, ho feia el 11/11/2026. El fons el
+// passa a «real» i avisa. «registre» és un Map per pestanya que guarda el fons.
+MG.BUCLE = { vegades: 5, segons: 30 };
+MG.esBucle = function (registre, tabId, url, ara = Date.now()) {
+  if (tabId < 0) return false;
+  const adreca = String(url).split("#")[0];
+  const llista = (registre.get(tabId) || []).filter((c) => ara - c.t < MG.BUCLE.segons * 1000);
+  llista.push({ adreca, t: ara });
+  registre.set(tabId, llista);
+  if (llista.filter((c) => c.adreca === adreca).length < MG.BUCLE.vegades) return false;
+  registre.delete(tabId);
+  return true;
+};
+
 // Hash de text (cyrb53): el mateix text dona sempre el mateix número.
 MG.hash = function (s) {
   let h1 = 0xdeadbeef, h2 = 0x41c6ce57;

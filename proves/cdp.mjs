@@ -12,8 +12,10 @@ export class CDP {
     this.ws = ws;
     this.id = 0;
     this.pendents = new Map();
+    this.escoltadors = [];
     ws.onmessage = (m) => {
       const d = JSON.parse(m.data);
+      if (d.method) for (const f of this.escoltadors) f(d);
       if (d.id && this.pendents.has(d.id)) {
         const { ok, ko } = this.pendents.get(d.id);
         this.pendents.delete(d.id);
@@ -34,6 +36,9 @@ export class CDP {
       this.pendents.set(id, { ok: (v) => { clearTimeout(t); ok(v); }, ko: (e) => { clearTimeout(t); ko(e); } });
     });
   }
+
+  // Escolta els esdeveniments ({method, params, sessionId}).
+  on(f) { this.escoltadors.push(f); }
 
   async objectius() {
     return (await this.envia("Target.getTargets")).targetInfos;

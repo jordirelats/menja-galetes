@@ -49,7 +49,7 @@ const nav = spawn(binari, ["--headless=new", "--disable-gpu", "--no-first-run", 
   ...(ambChrome ? ["--enable-unsafe-extension-debugging"] : [`--load-extension=${EXT}`]),
   `--user-data-dir=${perfil}`, `--remote-debugging-port=${PORT}`,
   "--disable-features=HttpsUpgrades,HttpsFirstBalancedModeAutoEnable",
-  "--host-resolver-rules=MAP diari.test 127.0.0.1, MAP www.bancprova.test 127.0.0.1, MAP www.prova.gob.es 127.0.0.1, MAP botiga.test 127.0.0.1, MAP h.online-metrix.net 127.0.0.1, MAP revista.test 127.0.0.1, MAP amagat.test 127.0.0.1",
+  "--host-resolver-rules=MAP diari.test 127.0.0.1, MAP www.bancprova.test 127.0.0.1, MAP www.prova.gob.es 127.0.0.1, MAP botiga.test 127.0.0.1, MAP h.online-metrix.net 127.0.0.1, MAP revista.test 127.0.0.1, MAP amagat.test 127.0.0.1, MAP bucle.test 127.0.0.1",
   "about:blank"], { stdio: "ignore" });
 
 let c;
@@ -133,6 +133,9 @@ try {
   const xff = String(eco["X-Forwarded-For"] || "0.0.0.0").split(".");
   comprova("X-Forwarded-For: una IP de ningú (100.64.0.0/10)", xff[0] === "100" && +xff[1] >= 64 && +xff[1] <= 127, eco["X-Forwarded-For"]);
   comprova("Sec-CH-UA-Platform de la disfressa", /Windows|macOS/.test(eco["sec-ch-ua-platform"] || eco["Sec-CH-UA-Platform"] || ""), eco["sec-ch-ua-platform"]);
+  await ves(`${WEB}/sw-prova`, 2500);
+  const swi = await info();
+  comprova("les peticions del service worker porten la mateixa disfressa", swi.sw === i1.userAgent, swi.sw || swi.error);
 
   // ---- 4. L'avís de galetes ----
   console.log("\n4. L'avís de galetes");
@@ -263,6 +266,17 @@ try {
     try { recarregada = await aPagina("!!document.body && !document.body.dataset.abans && !document.getElementById('menja-galetes-monstre')"); } catch (e) { /* recarregant */ }
   }
   comprova("quan marxa, la pàgina es torna a carregar (i l'hàmster ja no hi és)", recarregada);
+
+  // ---- 13. Un web que la disfressa fa tornar boig ----
+  console.log("\n13. Un web que es torna a carregar sense parar");
+  await ves("http://bucle.test:8765/bucle", 6000);
+  const b13 = await info();
+  await dorm(1500);
+  const b13b = await info();
+  comprova("el web que es tornava a carregar sense parar, ara sense disfressa", /Linux/.test(b13b.userAgent), `${b13b.userAgent} · càrregues ${b13b.carrega}`);
+  comprova("i ja no es torna a carregar", b13b.carrega < 15 && b13b.carrega === b13.carrega, `càrregues ${b13.carrega} → ${b13b.carrega}`);
+  const ra13 = JSON.parse(await alFons("JSON.stringify(cfg.realAuto)"));
+  comprova("bucle.test, a la llista automàtica", ra13.includes("bucle.test"), ra13.join(", "));
 } catch (err) {
   console.log("ERROR:", err.message);
   resultats.push(false);

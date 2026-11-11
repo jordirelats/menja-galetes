@@ -15,6 +15,8 @@
 /marc-entrada  un web amb un marc d'un altre web, sense «referrer», que té una contrasenya.
 /res      una resposta 204 (com una baixada: la pestanya es queda on era).
 /simple?plataforma=1  a més, datr (de Facebook) i UID (un nom genèric).
+/bucle    com el Zoho Mail: si no veu el navegador de sempre (Linux), es torna a carregar.
+/sw-prova un service worker que demana /eco i torna el User-Agent que hi ha arribat.
 """
 import json
 import threading
@@ -122,6 +124,25 @@ document.getElementById('info').textContent = JSON.stringify({userAgent: navigat
 </script></body></html>"""
 
 
+BUCLE = """<!doctype html><html><head><meta charset="utf-8"></head><body><pre id="info">...</pre><script>
+const n = (sessionStorage.n = (Number(sessionStorage.n) || 0) + 1);
+document.getElementById('info').textContent = JSON.stringify({userAgent: navigator.userAgent, carrega: n});
+if (!/Linux/.test(navigator.userAgent) && n < 40) setTimeout(() => location.href = location.pathname, 250);
+</script></body></html>"""
+
+SW_PROVA = """<!doctype html><html><head><meta charset="utf-8"></head><body><pre id="info">...</pre><script>
+const posa = (r) => document.getElementById('info').textContent = JSON.stringify(r);
+navigator.serviceWorker.register('/sw.js').then(() => navigator.serviceWorker.ready).then((reg) => {
+  const canal = new MessageChannel();
+  canal.port1.onmessage = (e) => posa({pagina: navigator.userAgent, sw: e.data});
+  reg.active.postMessage('eco', [canal.port2]);
+}).catch((e) => posa({error: String(e)}));
+</script></body></html>"""
+
+SW_JS = ("onmessage = (e) => fetch('/eco').then((r) => r.json())"
+         ".then((j) => e.ports[0].postMessage(j['User-Agent'] || j['user-agent']));")
+
+
 class Gestor(BaseHTTPRequestHandler):
     def log_message(self, *a):
         pass
@@ -173,6 +194,12 @@ class Gestor(BaseHTTPRequestHandler):
                                                 "sessio=banc123; Max-Age=86400; Path=/", *extra])
         elif u.path == "/marc-entrada":
             self._envia(SIMPLE % '<iframe src="http://amagat.test:8765/entrada" referrerpolicy="no-referrer"></iframe>')
+        elif u.path == "/bucle":
+            self._envia(BUCLE)
+        elif u.path == "/sw-prova":
+            self._envia(SW_PROVA)
+        elif u.path == "/sw.js":
+            self._envia(SW_JS, "text/javascript")
         elif u.path == "/res":
             self.send_response(204)
             self.end_headers()

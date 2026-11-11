@@ -143,7 +143,7 @@ async function pinta() {
       : xarxa
         ? "És una xarxa social, de missatgeria o de cites, o una plataforma on hi ha menors. Hi vas amb la teva identitat real, perquè els seus sistemes contra els comptes falsos, l'assetjament i els usuaris expulsats funcionin."
       : auto
-        ? "Aquest web demana una contrasenya o una targeta, fa servir un sistema contra el frau, o el seu certificat és d'un banc o d'una administració. Hi vas sense disfressa, perquè aquests sistemes funcionin."
+        ? "Aquest web demana una contrasenya o una targeta, fa servir un sistema contra el frau, té el certificat d'un banc o d'una administració, o amb la disfressa es tornava a carregar sense parar. Hi vas sense disfressa, perquè funcioni."
         : "És un web de confiança: hi vas sense disfressa, i les seves galetes es queden perquè no et tregui de la sessió. Les de tercers i les de seguiment, me les menjo igualment.";
     cos.append(h("div.heroi", img, h("div",
       h("div.mitja.verd", sempre || xarxa || auto ? "Aquí hi vas amb la teva identitat real" : "Aquí no et disfresso"),

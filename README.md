@@ -26,6 +26,8 @@ La disfressa arriba també als llocs on els webs més espavilats van a buscar el
 
 **Respon els avisos de galetes** (OneTrust, Cookiebot, Didomi, Usercentrics, Sourcepoint i altres): els accepta o els rebutja per tu, com triïs.
 
+**Si la disfressa trenca un web**, se la treu sola. Quan un web disfressat es torna a carregar sense parar (la mateixa adreça 5 vegades en 30 segons), a partir d'aquell moment hi vas amb el navegador de debò i t'avisa. Les galetes de seguiment i les de tercers, se les continua menjant.
+
 **Si la IP canvia de país** (per exemple, si encens una VPN), es posa una disfressa del país nou i se les menja totes, perquè el web no pugui lligar l'abans i el després.
 
 **«Menja-te-les totes ara».** Des de la finestreta, se les menja totes de cop i es posa una disfressa nova per a aquell web. Mentrestant, un hàmster travessa la pàgina menjant-se una filera de galetes. Si el sistema demana menys moviment, només surt la bombolla.
@@ -86,8 +88,10 @@ Al Chromium, l'extensió fa el mateix que al Firefox, amb aquestes diferències:
 - `extensio/lib/comu.js`: les peces comunes (llocs, galetes de seguiment, països i disfresses).
 - `extensio/lib/monstre.js`: l'hàmster. Es posa a la pàgina només quan cliques «Menja-te-les totes ara», dins d'una *shadow root* tancada i amb `element.animate()`, perquè ni els estils ni la CSP del web el puguin tocar.
 - `chromium/`: la versió per al Vivaldi, el Chrome i el Brave (Manifest V3). `fons.js` és un *service worker* que fa servir `declarativeNetRequest`, `userScripts` i `cookies`; `pagina.js` és el codi de pàgina (al món MAIN); `contingut.js` respon els avisos i detecta les pàgines amb contrasenya. La finestreta, les opcions i `lib/comu.js` són els mateixos del Firefox: `eines/construeix-chromium.py` ho ajunta tot.
-- `proves/prova.py`: obre un Firefox a part, sense finestra, amb un perfil temporal, i fa 117 proves contra un servidor local. Només fa servir Python i el protocol Marionette del Firefox: `python3 proves/prova.py`.
-- `proves/prova-chromium.mjs`: el mateix amb un Vivaldi a part (50 proves), controlat amb el protocol DevTools des del Node: `node proves/prova-chromium.mjs`. Amb `NAVEGADOR=chrome`, les fa amb el Google Chrome (que, des de la versió 137, s'hi carrega amb l'ordre `Extensions.loadUnpacked` del protocol).
+- `proves/prova.py`: obre un Firefox a part, sense finestra, amb un perfil temporal, i fa 120 proves contra un servidor local. Només fa servir Python i el protocol Marionette del Firefox: `python3 proves/prova.py`.
+- `proves/prova-chromium.mjs`: el mateix amb un Vivaldi a part (54 proves), controlat amb el protocol DevTools des del Node: `node proves/prova-chromium.mjs`. Amb `NAVEGADOR=chrome`, les fa amb el Google Chrome (que, des de la versió 137, s'hi carrega amb l'ordre `Extensions.loadUnpacked` del protocol).
+
+Si un web no va bé amb l'extensió, `node proves/diagnostica.mjs <adreça>` l'obre en un Vivaldi a part, sense l'extensió i amb, i compara les recàrregues, els errors i les peticions que fallen.
 
 ## Llicència
 

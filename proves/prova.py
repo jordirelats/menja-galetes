@@ -129,7 +129,7 @@ def main():
         'user_pref("intl.accept_languages", "ca,es,en");',
         # Noms de prova que van al servidor local (no surt res a internet)
         'user_pref("network.dns.localDomains", "diari.test,www.bancprova.test,www.prova.gob.es,botiga.test,'
-        'h.online-metrix.net,empresa.test,www.instagram.com,revista.test,amagat.test");',
+        'h.online-metrix.net,empresa.test,www.instagram.com,revista.test,amagat.test,bucle.test");',
     ]))
     env = dict(os.environ, MOZ_HEADLESS="1")
     ff = subprocess.Popen(["firefox", "--headless", "--marionette", "-remote-allow-system-access", "--no-remote", "--profile", str(perfil)],
@@ -219,6 +219,15 @@ def main():
         xff = eco.get("X-Forwarded-For", "0.0.0.0").split(".")
         comprova("X-Forwarded-For: una IP de ningú (100.64.0.0/10)", xff[0] == "100" and 64 <= int(xff[1]) <= 127,
                  eco.get("X-Forwarded-For"))
+        m.ves(f"{WEB}/sw-prova")
+        swi = {}
+        for _ in range(20):
+            time.sleep(0.3)
+            swi = info_pagina(m)
+            if swi.get("sw") or swi.get("error"):
+                break
+        comprova("les peticions del service worker porten la mateixa disfressa", swi.get("sw") == info.get("userAgent"),
+                 swi.get("sw") or swi.get("error"))
 
         # ---- 4. L'avís de galetes ----
         print("\n4. L'avís de galetes")
@@ -447,6 +456,22 @@ def main():
             except Exception:
                 pass
         comprova("quan marxa, la pàgina es torna a carregar (i l'hàmster ja no hi és)", recarregada)
+
+        # ---- 13. Un web que la disfressa fa tornar boig ----
+        print("\n13. Un web que es torna a carregar sense parar")
+        m.ves("http://bucle.test:8765/bucle")
+        b = {}
+        for _ in range(30):
+            time.sleep(0.4)
+            b = info_pagina(m)
+            if "Linux" in b.get("userAgent", ""):
+                break
+        time.sleep(1.5)
+        b2 = info_pagina(m)
+        comprova("el web que es tornava a carregar sense parar, ara sense disfressa", "Linux" in b2.get("userAgent", ""),
+                 f"{b2.get('userAgent')} · càrregues {b2.get('carrega')}")
+        comprova("i ja no es torna a carregar", b2.get("carrega", 99) < 15 and b2.get("carrega") == info_pagina(m).get("carrega"),
+                 f"càrregues {b2.get('carrega')}")
     finally:
         try:
             ff.terminate()
