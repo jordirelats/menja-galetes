@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Menja galetes",
   "short_name": "Menja galetes",
-  "version": "0.5.1",
+  "version": "0.6.0",
   "description": "Es menja la primera galeta i et disfressa perquè els webs s'emportin dades falses. Versió per al Vivaldi, el Chrome i el Brave.",
   "minimum_chrome_version": "138",
   "permissions": [
