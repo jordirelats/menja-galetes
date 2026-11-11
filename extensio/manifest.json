@@ -2,7 +2,7 @@
   "manifest_version": 2,
   "name": "Menja galetes",
   "short_name": "Menja galetes",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Es menja la primera galeta abans que es desi, i et disfressa perquè els webs s'emportin dades falses.",
   "browser_specific_settings": {
     "gecko": {
