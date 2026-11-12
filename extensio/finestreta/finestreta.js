@@ -192,8 +192,15 @@ async function pinta() {
     return;
   }
   if (e.scriptsUsuari === false) {
-    cos.append(h("div.nota-ip", "Per poder-te disfressar, cal un permís: a la pàgina d'extensions (vivaldi://extensions, chrome://extensions…), " +
-      "obre els detalls de Menja galetes i activa «Permet els scripts d'usuari». Les galetes, me les menjo igualment."));
+    // Només al Vivaldi i al Chrome: el Firefox no té aquest permís.
+    const detalls = h("button.pri", "Obre els detalls");
+    detalls.addEventListener("click", () => {
+      browser.tabs.create({ url: `chrome://extensions/?id=${browser.runtime.id}` });
+      window.close();
+    });
+    cos.append(h("div.nota-ip.permis", h("b", "Per disfressar-te, em falta un permís."),
+      " Obre els detalls de Menja galetes i activa «Permet els scripts d'usuari». Les galetes, me les menjo igualment.",
+      h("div", detalls)));
   }
 
   if (confiat) {

@@ -90,24 +90,45 @@ function registra() {
   return registrant;
 }
 async function fesRegistra() {
-  if (!chrome.userScripts) { scriptsUsuari = false; return; }
+  scriptsUsuari = await provaRegistra();
+  await chrome.storage.session.set({ scriptsUsuari });
+  insignia();
+}
+async function provaRegistra() {
+  if (!chrome.userScripts) return false;
   const codi = `(function () {\n${codiComu}\n;(${codiPagina.trim()})(MG, ${JSON.stringify(perAPagina())});\n})();`;
   try {
     const ara = await chrome.userScripts.getScripts({ ids: [ID_SCRIPT] });
     if (!cfg.actiu) {
       if (ara.length) await chrome.userScripts.unregister({ ids: [ID_SCRIPT] });
-      scriptsUsuari = true;
-      return;
+      return true;
     }
     const nou = { id: ID_SCRIPT, matches: ["<all_urls>"], js: [{ code: codi }], runAt: "document_start", world: "MAIN", allFrames: true };
-    if (ara.length && ara[0].js && ara[0].js[0] && ara[0].js[0].code === codi) { scriptsUsuari = true; return; }
+    if (ara.length && ara[0].js && ara[0].js[0] && ara[0].js[0].code === codi) return true;
     if (ara.length) await chrome.userScripts.update([nou]);
     else await chrome.userScripts.register([nou]);
-    scriptsUsuari = true;
+    return true;
   } catch (e) {
-    scriptsUsuari = false;   // l'interruptor «Permet els scripts d'usuari» és apagat
+    return false;   // l'interruptor «Permet els scripts d'usuari» és apagat
   }
-  await chrome.storage.session.set({ scriptsUsuari });
+}
+
+// Mentre falti el permís (i l'extensió és encesa), la icona porta un «!» vermell.
+function insignia() {
+  const falta = scriptsUsuari === false && !!cfg && cfg.actiu;
+  chrome.action.setBadgeText({ text: falta ? "!" : "" }).catch(() => {});
+  if (falta) chrome.action.setBadgeBackgroundColor({ color: "#B5463A" }).catch(() => {});
+}
+
+// Torna a carregar les pestanyes perquè s'hi posi la disfressa. Mai els bancs, els governs, les xarxes
+// ni els webs de confiança: hi podries tenir un pagament a mitges.
+async function recarregaPestanyes() {
+  let n = 0;
+  for (const t of await chrome.tabs.query({})) {
+    const h = hostDe(t.url || "");
+    if (h && !esReal(h)) { chrome.tabs.reload(t.id); n++; }
+  }
+  return n;
 }
 
 /* ---- Regles de xarxa ---- */
@@ -685,6 +706,12 @@ async function tracta(m, sender) {
     case "comprovaPais":
       await comprovaPais();
       return { paisIP: cfg.paisIP };
+    case "permis":
+      // La benvinguda ho pregunta cada segon: el navegador no avisa quan s'encén l'interruptor.
+      await registra();
+      return { scriptsUsuari };
+    case "recarregaPestanyes":
+      return { recarregades: await recarregaPestanyes() };
     default:
       return null;
   }
@@ -758,6 +785,8 @@ chrome.runtime.onInstalled.addListener(async (d) => {
     if (velles.length) await chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds: velles });
   } catch (e) { /* res */ }
   await registra();
+  // Sense el permís «Permet els scripts d'usuari» no hi ha disfressa: la benvinguda explica com donar-lo.
+  if (d.reason === "install" && scriptsUsuari === false) chrome.tabs.create({ url: chrome.runtime.getURL("benvinguda/benvinguda.html") });
   await regles();
   await totesReglesLloc();
   for (const t of await chrome.tabs.query({})) {
@@ -888,8 +917,7 @@ chrome.webRequest.onErrorOccurred.addListener(detectaAntifrau, { urls: ["<all_ur
 chrome.notifications.onClicked.addListener(async (id) => {
   if (id !== "pais") return;
   await llest;
-  // Mai els bancs, els governs, les xarxes ni els webs de confiança: hi podries tenir un pagament a mitges.
-  for (const t of await chrome.tabs.query({})) { const h = hostDe(t.url || ""); if (h && !esReal(h)) chrome.tabs.reload(t.id); }
+  await recarregaPestanyes();
 });
 
 chrome.runtime.onMessage.addListener((m, sender, resposta) => {

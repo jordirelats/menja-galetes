@@ -22,6 +22,10 @@ Per saber de quin país surt la teva connexió, l'extensió demana de tant en ta
 
 A la finestreta hi ha un enllaç a la prova Cover Your Tracks de l'EFF (`coveryourtracks.eff.org`). Només s'obre si hi cliques, com qualsevol altre enllaç.
 
+## A la botiga de Chrome
+
+La botiga de Chrome demana declarar quines dades «gestiona» una extensió, també quan no surten mai del navegador. Per això hi diu que Menja galetes gestiona la ubicació (la IP i el país de la connexió), l'historial web (quan vas als webs on ja tenies galetes), l'activitat (les peticions dels webs, per canviar-ne les galetes i aturar els rastrejadors) i el contingut dels webs (el text dels avisos de galetes, per saber quin botó clicar). Tot això es fa dins del teu navegador i no s'envia enlloc.
+
 ## Contacte
 
 Pots escriure a l'autor obrint una incidència a https://github.com/jordirelats/menja-galetes/issues.
@@ -49,6 +53,10 @@ To know which country your connection comes from, the extension occasionally req
 ## Links you open yourself
 
 The popup has a link to the EFF's Cover Your Tracks test (`coveryourtracks.eff.org`). It only opens if you click it, like any other link.
+
+## On the Chrome Web Store
+
+The Chrome Web Store asks extensions to declare which data they "handle", even when it never leaves the browser. That is why it says Menja galetes handles location (your connection's IP address and country), web history (when you visit the sites where you already had cookies), user activity (websites' requests, to rewrite their cookies and block trackers) and website content (the text of cookie banners, to know which button to click). All of this happens inside your browser and is not sent anywhere.
 
 ## Contact
 

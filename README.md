@@ -86,7 +86,8 @@ Cal el Firefox 140 o més nou.
 1. Munta-la: `python3 eines/construeix-chromium.py` (la deixa a `construit/menja-galetes-chromium/`).
 2. Obre `vivaldi://extensions` (o `chrome://extensions`) i activa el **mode de desenvolupador**.
 3. Clica «Carrega l'extensió desempaquetada» i tria la carpeta `construit/menja-galetes-chromium`.
-4. Obre els **detalls** de Menja galetes i activa **«Permet els scripts d'usuari»**. Sense això no et pot disfressar (les galetes, se les menja igualment), i la finestreta t'ho recorda.
+4. Obre els **detalls** de Menja galetes i activa **«Permet els scripts d'usuari»**. Sense això no et pot disfressar (les galetes, se les menja igualment).
+   Quan la instal·les, si no el té, s'obre una pàgina de benvinguda amb el botó «Obre els detalls», que es posa verda sola quan l'actives. Mentre falti, la icona porta un «!» i la finestreta t'ho recorda.
 
 Instal·lada així, s'hi queda encara que tanquis el navegador. Si la tornes a muntar, clica el botó de tornar a carregar de l'extensió.
 

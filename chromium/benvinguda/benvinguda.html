@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="ca">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Menja galetes · benvinguda</title>
+<link rel="stylesheet" href="../comu.css">
+<link rel="stylesheet" href="benvinguda.css">
+</head>
+<body class="espera">
+<main>
+  <div class="cap">
+    <img src="../icones/galeta.svg" alt="">
+    <span class="nom">Menja galetes</span>
+  </div>
+
+  <!-- Esperant el permís -->
+  <div class="cos vista-espera">
+    <h1 class="titol">Jo em menjo les galetes.<br>Per disfressar-te, em falta un permís.</h1>
+    <p class="explica">El Vivaldi i el Chrome només deixen canviar el que veu una pàgina des del primer instant (el navegador, la pantalla,
+      l'empremta, l'hora) a les extensions que tenen el permís «Permet els scripts d'usuari». L'has de donar tu: una extensió no se'l pot donar.</p>
+    <div class="estat espera" role="status"><span class="punt"></span>Encara no tinc el permís</div>
+    <ol class="passos">
+      <li><div class="pas"><b>Obre els detalls de Menja galetes</b>
+        <small>S'obre la pàgina de l'extensió, en una pestanya nova.</small>
+        <button class="pri" id="detalls">Obre els detalls</button></div></li>
+      <li><div class="pas"><b>Activa «Permet els scripts d'usuari»</b>
+        <small>És més avall, a la mateixa pàgina:</small>
+        <div class="fila-nav" aria-hidden="true"><span>Permet els scripts d'usuari</span>
+          <span class="on"><span class="inter-nav"></span><span class="fletxa">← aquí</span></span></div></div></li>
+      <li><div class="pas"><b>Torna aquí</b>
+        <small>Ho veuré sol, no cal que facis res més.</small></div></li>
+    </ol>
+    <div class="caixa masa"><b>Mentrestant</b><ul>
+      <li class="si">Em menjo les galetes de seguiment i les de tercers.</li>
+      <li class="si">Trec els identificadors dels enllaços i aturo els gravadors de sessió i els espies dels correus.</li>
+      <li class="no">No et puc disfressar: els webs veuen el teu navegador de debò.</li>
+    </ul></div>
+    <p class="segur"><b>És segur?</b> En activar-lo, el navegador avisa que l'extensió podrà executar codi que no ha revisat: és l'avís de
+      sempre d'aquest permís. L'únic script que hi poso és el de l'extensió, que ve dins del paquet i es pot llegir a
+      <a href="https://github.com/jordirelats/menja-galetes" target="_blank" rel="noopener">GitHub</a>. No en baixo cap de fora, i no s'hi en pot afegir cap altre.</p>
+  </div>
+
+  <!-- Quan ja el té -->
+  <div class="cos vista-fet">
+    <h1 class="titol verd">Fet! Ja et disfresso.</h1>
+    <p class="explica">Ara cada web veu un navegador inventat, i les galetes de seguiment se les emporten amb un número fals.</p>
+    <div class="estat fet" role="status"><span class="punt"></span>Tinc el permís</div>
+    <ol class="passos">
+      <li class="fet"><div class="pas"><b>Obre els detalls de Menja galetes</b></div></li>
+      <li class="fet"><div class="pas"><b>Activa «Permet els scripts d'usuari»</b></div></li>
+      <li class="fet"><div class="pas"><b>Torna aquí</b></div></li>
+    </ol>
+    <div class="caixa verd"><b>Les pestanyes que ja tenies obertes</b>
+      <span id="text-pestanyes">Encara no van disfressades. Torna-les a carregar i ja hi seré.</span></div>
+    <div class="botons"><button class="pri" id="recarrega">Torna-les a carregar</button><button class="sec" id="tanca">Tanca</button></div>
+  </div>
+</main>
+<script src="../lib/navegador.js"></script>
+<script src="benvinguda.js"></script>
+</body>
+</html>

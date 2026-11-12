@@ -1,0 +1,44 @@
+/* Menja galetes · la benvinguda del Chromium (maqueta/genera_benvinguda.py) */
+body { background: var(--fons); padding: 32px 16px; }
+main { max-width: 600px; margin: 0 auto; background: var(--paper); border-radius: 12px; overflow: hidden;
+  box-shadow: 0 1px 2px rgba(74,44,26,.12), 0 8px 24px rgba(74,44,26,.14); }
+body.espera .vista-fet, body.fet .vista-espera { display: none; }
+.cos { padding: 18px 22px 20px; }
+.titol { font-size: 22px; font-weight: 800; color: var(--xoco); line-height: 1.25; margin: 0 0 6px; }
+.titol.verd { color: var(--verd); }
+.explica { color: var(--suau); font-size: 13.5px; margin: 0 0 14px; }
+.estat { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px; font-weight: 700; font-size: 13px; margin-bottom: 14px; }
+.estat.espera { background: var(--groc); border: 1.5px solid var(--groc-vora); color: var(--groc-text); }
+.estat.fet { background: var(--verd-clar); border: 1.5px solid #A9D3B5; color: var(--verd); }
+.punt { width: 9px; height: 9px; border-radius: 50%; background: currentColor; }
+.estat.espera .punt { animation: batec 1.6s ease-in-out infinite; }
+@keyframes batec { 50% { opacity: .25; } }
+@media (prefers-reduced-motion: reduce) { .estat.espera .punt { animation: none; opacity: .7; } }
+ol.passos { list-style: none; margin: 0 0 14px; padding: 0; counter-reset: pas; }
+ol.passos li { display: flex; gap: 12px; padding: 10px 0; border-top: 1px solid var(--linia); counter-increment: pas; }
+ol.passos li::before { content: counter(pas); flex: none; width: 26px; height: 26px; border-radius: 50%; background: var(--xoco); color: #FFF4E2;
+  font-weight: 800; display: grid; place-items: center; font-size: 13px; }
+ol.passos li.fet::before { content: "✓"; background: var(--verd); }
+.pas { flex: 1; min-width: 0; }
+.pas b { display: block; font-size: 14px; }
+.pas small { display: block; color: var(--suau); font-size: 12.5px; margin-top: 2px; }
+.pas button { margin-top: 8px; }
+.fila-nav { margin-top: 8px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px;
+  background: #fff; border: 1px solid #D9D9DE; border-radius: 8px; font: 13px system-ui, sans-serif; color: #202124; }
+.fila-nav .on { display: flex; align-items: center; flex: none; }
+.inter-nav { width: 34px; height: 14px; border-radius: 7px; background: #8AB4F8; position: relative; flex: none; }
+.inter-nav::after { content: ""; position: absolute; top: -3px; right: -2px; width: 20px; height: 20px; border-radius: 50%; background: #1A73E8;
+  box-shadow: 0 1px 2px rgba(0,0,0,.3); }
+.fletxa { color: var(--crosta); font-weight: 800; font-size: 12px; margin-left: 6px; }
+.caixa { padding: 10px 12px; border-radius: 8px; font-size: 13px; margin-bottom: 10px; }
+.caixa.masa { background: var(--masa); }
+.caixa.verd { background: var(--verd-clar); }
+.caixa b { display: block; margin-bottom: 4px; }
+.caixa ul { margin: 0; padding: 0; list-style: none; }
+.caixa li { padding: 2px 0 2px 22px; position: relative; }
+.caixa li::before { position: absolute; left: 0; font-weight: 800; }
+.caixa li.si::before { content: "✓"; color: var(--verd); }
+.caixa li.no::before { content: "✗"; color: var(--vermell); }
+.segur { font-size: 12.5px; color: var(--suau); margin: 0; }
+.segur a { color: var(--xoco); }
+.botons { display: flex; gap: 8px; margin-top: 4px; }

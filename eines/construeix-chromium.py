@@ -21,4 +21,6 @@ for nom in ("comu.js", "navegador.js", "monstre.js"):
 shutil.copy2(ARREL / "extensio" / "comu.css", DESTI / "comu.css")
 for carpeta in ("finestreta", "opcions", "icones"):
     shutil.copytree(ARREL / "extensio" / carpeta, DESTI / carpeta)
+# La benvinguda (el permís «Permet els scripts d'usuari») només és del Chromium.
+shutil.copytree(ARREL / "chromium" / "benvinguda", DESTI / "benvinguda")
 print(DESTI)
