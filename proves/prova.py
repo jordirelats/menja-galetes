@@ -248,6 +248,8 @@ def main():
         (CAPTURES / "finestreta.png").write_bytes(base64.b64decode(png))
         text = m.js("return document.body.innerText;")
         comprova("la finestreta diu «Primera galeta: menjada»", "Primera galeta: menjada" in text)
+        comprova("i què fa cada galeta: _ga (Google Analytics) i _fbp (Meta)",
+                 "Google Analytics" in text and "Meta (Facebook i Instagram)" in text and "durant 2 anys" in text)
         comprova("la finestreta ensenya la IP de debò", "192.0.2.1" in text)
         comprova("i la ubicació que diu la IP (Espanya, a prop de Barcelona)", "Espanya, a prop de Barcelona" in text)
         comprova("i els codis de l'empremta (fals i de debò)", text.count("·") >= 2 and "Empremta: el codi" in text)

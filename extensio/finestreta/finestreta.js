@@ -17,6 +17,14 @@ function h(etiqueta, ...fills) {
 
 const escurça = (v, n = 18) => (v.length > n ? v.slice(0, n) + "…" : v);
 
+// Una galeta de la llista: el nom, el que hi va posar el web → el que diu ara, i a sota de qui és
+// i què s'emporta (MG.queFa).
+function filaGaleta(g) {
+  const q = MG.queFa(g.nom);
+  return h("div.gl", h("code", g.nom), h("s", escurça(g.original || "(buida)")), h("span.fl", "→"), h("b", escurça(g.fals)),
+    h("div.que", q ? [h("b", q.qui), " · ", q.que] : "Un identificador per reconèixer-te quan tornis, o en altres webs on hi hagi la mateixa empresa."));
+}
+
 // El navegador i el sistema de debò (els de la finestreta no van disfressats).
 function navegadorReal() {
   if (/Firefox\//.test(navigator.userAgent)) return "Firefox";
@@ -200,9 +208,7 @@ async function pinta() {
       h("div.sota", explica))));
     if (e.galetes.length) {
       cos.append(h("div.titol-llista", "Galetes de tercers i de seguiment · menjades igualment"));
-      cos.append(h("div.gls", e.galetes.slice(0, 8).map((g) =>
-        h("div.gl", h("code", g.nom), h("s", escurça(g.original || "(buida)")), h("span.fl", "→"), h("b", escurça(g.fals)))
-      )));
+      cos.append(h("div.gls", e.galetes.slice(0, 8).map(filaGaleta)));
     }
     cos.append(...aturats(e));
     const rc = seccioResum(e);
@@ -225,9 +231,8 @@ async function pinta() {
       : "Aquest web encara no t'ha intentat posar cap galeta de seguiment."))));
   if (menjades) {
     cos.append(h("div.titol-llista", "Galetes de seguiment · el que hi va posar → el que diu ara"));
-    cos.append(h("div.gls", e.galetes.slice(0, 8).map((g) =>
-      h("div.gl", h("code", g.nom), h("s", escurça(g.original || "(buida)")), h("span.fl", "→"), h("b", escurça(g.fals)))
-    )));
+    cos.append(h("div.gls", e.galetes.slice(0, 8).map(filaGaleta)));
+    cos.append(h("div.nota", "Cada galeta és un número que t'identifica. El que s'emporten és el que l'empresa hi apunta al costat cada vegada que hi tornes. Ara, amb el número fals, no et poden reconèixer."));
     if (menjades > 8) cos.append(h("div.nota", `I ${menjades - 8} més.`));
   }
   if (e.funcionament.length) {

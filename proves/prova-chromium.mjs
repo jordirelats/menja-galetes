@@ -153,6 +153,8 @@ try {
   const fin = pag;
   const text = await c.avalua(fin, "document.body.innerText");
   comprova("la finestreta diu «Primera galeta: menjada»", text.includes("Primera galeta: menjada"), text.slice(0, 80).replace(/\n/g, " "));
+  // (Aquí només hi surt _ga: la _fbp ja es va crear a la secció 1, i per JavaScript només s'avisa la primera vegada.)
+  comprova("i què fa cada galeta: _ga (Google Analytics)", text.includes("Google Analytics") && text.includes("durant 2 anys"));
   comprova("la finestreta ensenya la IP de debò", text.includes("192.0.2.1"));
   comprova("i la ubicació que diu la IP (Espanya, a prop de Barcelona)", text.includes("Espanya, a prop de Barcelona"));
   await c.envia("Emulation.setDeviceMetricsOverride", { width: 400, height: 900, deviceScaleFactor: 1, mobile: false }, fin);

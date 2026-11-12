@@ -469,6 +469,62 @@ MG.SEGUIMENT = [
   /^datr$/,                 // el de Facebook (a facebook.com mateix no compta: vegeu ID_PLATAFORMA)
 ];
 
+// Què fa cada galeta de seguiment: de qui és i què s'emporta (la finestreta ho ensenya sota de
+// cada galeta). La galeta només és un número que t'identifica; el que s'emporten és el que
+// l'script de l'empresa envia juntament amb aquest número cada vegada que hi tornes.
+// [nom, de qui, què fa]. Totes les de MG.SEGUIMENT hi han de ser.
+MG.QUE_FAN = [
+  [/^_ga$/, "Google Analytics", "Un número que t'identifica en aquest web durant 2 anys. Amb ell, Google apunta cada pàgina que mires, d'on vens, quanta estona hi estàs i amb quin aparell."],
+  [/^_gid$/, "Google Analytics", "Com _ga, però dura 24 hores: lliga totes les pàgines que mires avui."],
+  [/^__utma$/, "Google Analytics (l'antic)", "T'identifica com a visitant i apunta quantes vegades hi has vingut i quan."],
+  [/^_gcl_(au|aw|dc|gb|gs)$/, "Google Ads", "Recorda per quin anunci de Google hi has arribat, perquè el web li digui a Google si després compres o t'hi registres."],
+  [/^IDE$/, "Google (DoubleClick)", "L'identificador publicitari de Google a milers de webs: amb el que mires a tot arreu, decideix quins anuncis t'ensenya."],
+  [/^__gads$|^__gpi$/, "Google (anuncis del web)", "Compta quins anuncis de Google has vist en aquest web i en quins has clicat."],
+  [/^VISITOR_INFO1_LIVE$/, "YouTube", "Reconeix el navegador encara que no hi hagis entrat, per recomanar-te vídeos i mesurar els anuncis."],
+  [/^_fbp$/, "Meta (Facebook i Instagram)", "T'identifica per al píxel de Meta: s'emporta què mires i què compres aquí, per ensenyar-te anuncis a Facebook i Instagram i comprovar si han funcionat."],
+  [/^_fbc$/, "Meta (Facebook i Instagram)", "Recorda que hi has arribat des d'un anunci o un enllaç de Facebook o Instagram."],
+  [/^datr$/, "Meta (Facebook)", "Reconeix el navegador encara que no tinguis compte. Fora de Facebook, serveix per lligar-te amb el que fas en altres webs."],
+  [/^_uetvid$/, "Microsoft (anuncis de Bing)", "T'identifica durant 13 mesos i lliga les teves visites amb els anuncis de Bing que has vist o clicat."],
+  [/^_uetsid$/, "Microsoft (anuncis de Bing)", "Com _uetvid, però dura un dia."],
+  [/^_clck$/, "Microsoft Clarity", "L'identificador d'un gravador de sessions: grava els clics, el ratolí i fins on baixes a cada pàgina."],
+  [/^_hjSessionUser_|^_hjid$/, "Hotjar", "L'identificador d'un gravador de sessions: grava el que fas a la pàgina (clics, ratolí, el que escrius) i en fa mapes de calor."],
+  [/^_ttp$|^_tt_enable_cookie$/, "TikTok", "T'identifica per al píxel de TikTok: s'emporta què mires i què compres aquí, per als seus anuncis."],
+  [/^_pin_unauth$|^_pinterest_ct_ua$|^_derived_epik$/, "Pinterest", "T'identifica per a Pinterest, encara que no hi tinguis compte, per mesurar si els seus anuncis et fan comprar."],
+  [/^_scid$/, "Snapchat", "T'identifica per al píxel de Snapchat, per als seus anuncis."],
+  [/^_rdt_uuid$/, "Reddit", "T'identifica per al píxel de Reddit, per als seus anuncis."],
+  [/^muc_ads$|^personalization_id$|^guest_id(_ads|_marketing)?$/, "X (Twitter)", "Reconeix el navegador per als anuncis de X i per lligar-hi el que fas fora de X."],
+  [/^li_sugr$|^bcookie$/, "LinkedIn", "Reconeix el navegador per als anuncis de LinkedIn fora de LinkedIn."],
+  [/^ajs_anonymous_id$|^ajs_user_id$/, "Segment", "Un identificador que reparteix el que fas aquí entre moltes altres eines d'anàlisi i de publicitat."],
+  [/^amplitude_id/, "Amplitude", "Analítica: apunta cada clic i cada pantalla, lligats a un identificador teu."],
+  [/^mp_.*_mixpanel$/, "Mixpanel", "Analítica: apunta cada clic i cada pantalla, lligats a un identificador teu."],
+  [/^_hp2_id\./, "Heap", "Analítica: apunta sola tots els clics i els formularis, lligats a un identificador teu."],
+  [/^__hstc$|^hubspotutk$/, "HubSpot", "Segueix les teves visites (la primera, l'última i quantes) i, si omples un formulari, les lliga amb el teu correu."],
+  [/^_mkto_trk$/, "Marketo (Adobe)", "Segueix les teves visites i, si dones el correu o cliques un dels seus correus, les lliga amb tu."],
+  [/^visitor_id\d*$/, "Salesforce (Pardot)", "Segueix les teves visites i, si dones el correu, les lliga amb tu."],
+  [/^s_ecid$|^AMCV_|^s_vi$/, "Adobe", "L'identificador de visitant d'Adobe Analytics, que Adobe pot fer servir a tots els webs dels seus clients."],
+  [/^_cc_id$/, "Lotame", "Un mercader de dades: fa un perfil teu (interessos, edat, on vius…) i el ven als anunciants."],
+  [/^__qca$/, "Quantcast", "Mesura l'audiència i fa perfils de visitants per als anunciants."],
+  [/^cto_bundle$/, "Criteo", "Els anuncis que et persegueixen per tot el web amb els productes que has mirat aquí."],
+  [/^__adroll/, "AdRoll", "Els anuncis que et persegueixen per tot el web amb el que has mirat aquí."],
+  [/^XANDR_PANID$|^uuid2$|^anj$/, "Xandr (Microsoft)", "Subhastes d'anuncis: el teu identificador es comparteix amb els anunciants que hi pugen."],
+  [/^tuuid/, "Subhastes d'anuncis", "Un identificador per a les subhastes d'anuncis en temps real, que comparteixen molts anunciants."],
+  [/^_au_1d$/, "AudienceProject", "Fa perfils d'audiència (edat, gènere, interessos) per als anunciants."],
+  [/^_lr_env/, "LiveRamp", "Lliga el navegador amb la teva identitat (el correu, el nom) per als anunciants."],
+  [/^_lc2_fpi/, "LiveIntent", "Lliga el navegador amb el teu correu, per als anuncis dels butlletins."],
+  [/^_pk_id\./, "Matomo", "L'identificador de visitant de les estadístiques del web (sovint no se'l queda cap altra empresa)."],
+  [/^_shopify_y$/, "Shopify", "L'identificador de visitant de la botiga, per a les estadístiques de Shopify i de la botiga."],
+  [/^_vwo_uuid/, "VWO", "Proves A/B: et posa en un grup i apunta com et comportes amb cada versió del web."],
+  [/^optimizelyEndUserId$/, "Optimizely", "Proves A/B: et posa en un grup i apunta com et comportes amb cada versió del web."],
+  [/^_sp_id\./, "Snowplow", "Analítica: apunta cada pàgina i cada clic, lligats a un identificador teu."],
+  [/^_parsely_visitor$/, "Parse.ly", "Analítica de diaris: quins articles llegeixes i quanta estona."],
+];
+
+// De qui és una galeta i què fa, o null si no la coneixem.
+MG.queFa = function (nom) {
+  for (const [r, qui, que] of MG.QUE_FAN) if (r.test(String(nom || ""))) return { qui, que };
+  return null;
+};
+
 // Els que una xarxa social fa servir per reconèixer el navegador contra els comptes falsos i
 // l'abús. A la mateixa xarxa es deixen estar (hi vas amb la identitat real); a altres webs, són
 // galetes de seguiment com les altres.
