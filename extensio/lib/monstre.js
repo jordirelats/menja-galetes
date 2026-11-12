@@ -408,6 +408,13 @@ function MG_personatges() {
   };
 }
 
+// Un dibuix SVG (un text de la mateixa extensió) com a node, llegit amb DOMParser: sense innerHTML.
+function MG_dibuix(text) {
+  const t = String(text).trim().replace(/^<svg(?![^>]*\sxmlns=)/, '<svg xmlns="http://www.w3.org/2000/svg"');
+  const doc = new DOMParser().parseFromString(t, "image/svg+xml");
+  return document.importNode(doc.documentElement, true);
+}
+
 function MG_monstre(opcions) {
   const o = Array.isArray(opcions) ? { noms: opcions } : (opcions || {});
   const DURADA = 7700, TINTA = "#3A1F0C", FRASE = "Tinc gana… no n'hi ha més?";
@@ -447,7 +454,7 @@ function MG_monstre(opcions) {
     m.nou = (css, html, pare) => {
       const e = document.createElement("div");
       e.style.cssText = "position:absolute;left:0;top:0;" + (css || "");
-      if (html) e.innerHTML = html;
+      if (html) e.appendChild(MG_dibuix(html));
       (pare || escena).appendChild(e);
       return e;
     };

@@ -108,7 +108,7 @@ for (const [id, p] of Object.entries(PERSONATGES)) {
   b.dataset.id = id;
   const dibuix = document.createElement("div");
   dibuix.className = "dibuix";
-  dibuix.innerHTML = p.svg;
+  dibuix.append(MG_dibuix(p.svg));
   b.append(dibuix, p.nom);
   b.onclick = () => desa({ personatge: id });
   document.getElementById("personatges").append(b);
