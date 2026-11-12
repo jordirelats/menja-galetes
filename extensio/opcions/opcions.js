@@ -49,6 +49,8 @@ function pinta() {
     for (const b of t.querySelectorAll(".seg")) b.classList.toggle("on", String(config[t.dataset.clau]) === b.dataset.valor);
   }
   for (const clau of INTERRUPTORS) document.querySelector(`[data-clau='${clau}']`).classList.toggle("on", !!config[clau]);
+  const triat = PERSONATGES[config.personatge] ? config.personatge : "mico";
+  for (const b of document.querySelectorAll(".personatge")) b.classList.toggle("on", b.dataset.id === triat);
 
   const fals = document.getElementById("falseja");
   fals.textContent = "";
@@ -95,6 +97,30 @@ document.getElementById("afegeix").onsubmit = (ev) => {
   const lloc = MG.llocDeUrl(v);
   if (lloc && !config.confianca.some((w) => MG.lloc(w) === lloc)) desa({ confianca: [...config.confianca, lloc] });
   camp.value = "";
+};
+
+// Qui se les menja (lib/monstre.js): el dibuix de cada personatge, i «Mira'l» el fa sortir aquí mateix.
+const PERSONATGES = MG_personatges();
+for (const [id, p] of Object.entries(PERSONATGES)) {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "personatge";
+  b.dataset.id = id;
+  const dibuix = document.createElement("div");
+  dibuix.className = "dibuix";
+  dibuix.innerHTML = p.svg;
+  b.append(dibuix, p.nom);
+  b.onclick = () => desa({ personatge: id });
+  document.getElementById("personatges").append(b);
+}
+document.getElementById("mira").onclick = async (ev) => {
+  const boto = ev.currentTarget;
+  boto.disabled = true;
+  try {
+    await MG_monstre({ noms: ["_ga", "_fbp", "_gid", "_hjid", "_gcl_au"], personatge: config.personatge });
+  } finally {
+    boto.disabled = false;
+  }
 };
 
 // Al Vivaldi, el Chrome i el Brave, «a cada clic» només canvia el que llegeix JavaScript: les

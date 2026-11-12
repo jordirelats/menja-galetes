@@ -675,13 +675,14 @@ function nomsMenjades(p) {
   return [...new Set(noms)].slice(0, 5);
 }
 
-// El mico travessa la pàgina (lib/monstre.js). Si la pàgina no ho permet (about:, la botiga de
-// Mozilla, un PDF…) o triga massa, es passa de llarg.
+// El personatge triat (el mico o l'ós rentador) travessa la pàgina (lib/monstre.js). Si la pàgina
+// no ho permet (about:, la botiga de Mozilla, un PDF…) o triga massa, es passa de llarg.
 async function monstre(tabId, noms) {
+  const personatge = /^[a-z]{1,20}$/.test(cfg.personatge) ? cfg.personatge : "mico";
   try {
     await browser.tabs.executeScript(tabId, { file: "/lib/monstre.js", frameId: 0 });
     await Promise.race([
-      browser.tabs.executeScript(tabId, { code: `MG_monstre(${JSON.stringify(noms || [])})`, frameId: 0 }),
+      browser.tabs.executeScript(tabId, { code: `MG_monstre(${JSON.stringify({ noms: noms || [], personatge })})`, frameId: 0 }),
       new Promise((r) => setTimeout(r, 11000)),
     ]);
   } catch (e) { /* res */ }

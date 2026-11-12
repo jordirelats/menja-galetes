@@ -23,3 +23,12 @@ section:last-child { border-bottom: 0; }
 #realAuto { list-style: none; margin: 0 18px 14px; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
 #realAuto li { padding: 3px 9px; background: var(--masa); border-radius: 6px; font-size: 13px; font-weight: 600; }
 .consell { margin: 8px 18px 12px; padding: 8px 10px; background: var(--masa); border-radius: 8px; font-size: 12.5px; }
+.personatges { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; padding: 6px 18px 4px; }
+.personatge { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 6px 8px; background: #fff;
+  border: 2px solid var(--linia); border-radius: 10px; font: inherit; font-size: 13px; font-weight: 700; color: var(--suau); cursor: pointer; }
+.personatge .dibuix { width: 96px; height: 96px; }
+.personatge.on { border-color: var(--xoco); color: var(--xoco); background: var(--groc); }
+.mira { display: flex; align-items: center; gap: 10px; padding: 8px 18px 10px; }
+.mira small { flex: 1; color: var(--suau); font-size: 12.5px; }
+.boto-mira { flex: none; font: inherit; font-size: 13px; font-weight: 700; color: #fff; background: var(--xoco); border: 0; border-radius: 999px; padding: 7px 14px; cursor: pointer; }
+.boto-mira:disabled { opacity: .5; cursor: default; }

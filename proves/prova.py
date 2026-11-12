@@ -419,7 +419,22 @@ def main():
                  datr and datr[0]["value"])
 
         # ---- 12. El mico ----
-        print("\n12. «Menja-te-les totes ara»: el mico")
+        print("\n12. «Menja-te-les totes ara»: el personatge")
+        m.ves(f"moz-extension://{uuid}/opcions/opcions.html")
+        time.sleep(0.6)
+        tria = json.loads(m.js_async("""
+          const fet = arguments[arguments.length - 1];
+          const b = (window.wrappedJSObject || window).browser;
+          const ids = [...document.querySelectorAll('.personatge')].map((e) => e.dataset.id);
+          const abans = (document.querySelector('.personatge.on') || {}).dataset;
+          document.querySelector(".personatge[data-id='os']").click();
+          document.getElementById('mira').click();
+          setTimeout(() => b.storage.local.get('config').then((s) => fet(JSON.stringify({
+            ids, abans: abans && abans.id, desat: s.config.personatge, on: document.querySelector('.personatge.on').dataset.id,
+            mira: !!document.getElementById('menja-galetes-monstre') }))), 500);"""))
+        comprova("a les opcions es tria qui se les menja: el mico (per defecte) o l'ós rentador",
+                 tria["ids"] == ["mico", "os"] and tria["abans"] == "mico" and tria["desat"] == "os" and tria["on"] == "os", tria)
+        comprova("«Mira'l» el fa sortir a les mateixes opcions", tria["mira"], tria)
         simple("http://diari.test:8765/simple")
         m.js("document.body.dataset.abans = '1'; return 1;")
         diari = m.ordre("WebDriver:GetWindowHandle")
@@ -441,7 +456,7 @@ def main():
                 vist = True
                 break
             time.sleep(0.1)
-        comprova("surt el mico", vist, resp)
+        comprova("surt el personatge triat (l'ós rentador)", vist, resp)
         time.sleep(0.45)
         (CAPTURES / "monstre-galetes.png").write_bytes(base64.b64decode(m.captura()))
         time.sleep(0.9)
@@ -457,7 +472,7 @@ def main():
                     break
             except Exception:
                 pass
-        comprova("quan marxa, la pàgina es torna a carregar (i el mico ja no hi és)", recarregada)
+        comprova("quan marxa, la pàgina es torna a carregar (i el personatge ja no hi és)", recarregada)
 
         # ---- 13. Un web que la disfressa fa tornar boig ----
         print("\n13. Un web que es torna a carregar sense parar")

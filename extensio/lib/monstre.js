@@ -1,5 +1,6 @@
 /*
- * Menja galetes · el mico de «Menja-te-les totes ara».
+ * Menja galetes · el personatge de «Menja-te-les totes ara»: el mico o l'ós rentador (es tria a les
+ * opcions; per defecte, el mico).
  *
  * Entra saltant, agafa una galeta amb cada mà, salta d'alegria i se les menja a mossegades: la
  * galeta es va fent petita, en salten trossos i li cauen molles de la boca. Salta fins a dues
@@ -7,124 +8,414 @@
  * a la panxa, diu «Tinc gana… no n'hi ha més?» i se'n va saltant. Les molles es queden per terra.
  * Les galetes porten el nom de les galetes de seguiment que s'ha menjat d'aquest web.
  *
- * Torna una promesa que s'acaba quan ha marxat (llavors el fons torna a carregar la pàgina).
+ * MG_monstre({noms, personatge}) torna una promesa que s'acaba quan ha marxat (llavors el fons
+ * torna a carregar la pàgina). Les opcions també el fan servir, per veure'l («Mira'l»).
  *
  * Funciona igual al Firefox (script de contingut) i al Chromium (món aïllat). No fa servir cap
  * full d'estil ni cap script en línia: els estils van per CSSOM, l'SVG només porta atributs de
  * presentació i les animacions són element.animate(), perquè la CSP del web no ho pugui bloquejar.
  * És dins d'una «shadow root» tancada, perquè els estils del web no el toquin. No toca la pàgina:
- * el sacseig del «CRUUUNCH!» és només de la capa del mico (sacsejar <html> trencaria els menús fixos).
+ * el sacseig del «CRUUUNCH!» és només de la capa del personatge (sacsejar <html> trencaria els
+ * menús fixos). Aquest fitxer s'injecta cada vegada: a fora només hi ha declaracions de funció.
  *
  * Cada element té una «pista» que dura tota l'escena i totes comencen alhora.
- * És un personatge propi: en Jordi el va triar el 12/11/2026 entre tres (un ós rentador, un mico i
- * un pop). La maqueta és maqueta/genera_personatges.py. L'esquelet del dibuix (viewBox 0 0 240 240):
- * peus a y=234, boca a (120,112), espatlles a (80,142) i (160,142), galeta a 64 de l'espatlla.
+ * Són personatges propis: en Jordi va triar el mico el 12/11/2026 entre tres (un ós rentador, un
+ * mico i un pop) i després va voler poder triar-lo. La maqueta és maqueta/genera_personatges.py.
  */
-function MG_monstre(noms) {
+
+// Els personatges. Tots comparteixen l'esquelet (viewBox 0 0 240 240): peus a y=234, boca a
+// (120,112), ulls a (98,80) i (142,80), espatlles a (80,142) i (160,142) i la galeta a 64 de
+// l'espatlla; i les classes p-… (p-bra-e, p-ulls-cors, p-boca-enorme, p-g-mossegada…).
+// Per afegir-ne un: el dibuix, el nom i d'on penja la cua (en unitats del viewBox).
+function MG_personatges() {
+  return {
+    mico: { nom: "El mico", cua: "150px 206px", svg: `
+      <svg viewBox="0 0 240 240" width="100%" height="100%" overflow="visible" aria-hidden="true">
+      <defs>
+      <mask id="mg-mico-mos" maskUnits="userSpaceOnUse" maskContentUnits="userSpaceOnUse" x="-30" y="-30" width="60" height="60">
+      <rect x="-30" y="-30" width="60" height="60" fill="#fff"/>
+      <circle cx="-5" cy="-21" r="11" fill="#000"/>
+      <circle cx="9" cy="-22" r="9" fill="#000"/>
+      <circle cx="-17" cy="-13" r="8" fill="#000"/>
+      </mask>
+      <mask id="mg-mico-mitja" maskUnits="userSpaceOnUse" maskContentUnits="userSpaceOnUse" x="-30" y="-30" width="60" height="60">
+      <rect x="-30" y="-30" width="60" height="60" fill="#fff"/>
+      <circle cx="0" cy="-10" r="17" fill="#000"/>
+      <circle cx="-15" cy="-12" r="13" fill="#000"/>
+      <circle cx="15" cy="-12" r="13" fill="#000"/>
+      <circle cx="0" cy="-24" r="12" fill="#000"/>
+      </mask>
+      </defs>
+      <g class="p-cua">
+      <path d="M150 206 C196 220 228 186 214 152 C204 128 176 134 182 154 C186 166 200 160 198 150" stroke="#3A1F0C" stroke-width="16" fill="none" stroke-linecap="round"/>
+      <path d="M150 206 C196 220 228 186 214 152 C204 128 176 134 182 154 C186 166 200 160 198 150" stroke="#8B5530" stroke-width="10" fill="none" stroke-linecap="round"/>
+      </g>
+      <g class="p-peu-e">
+      <ellipse cx="100" cy="227" rx="21" ry="9" fill="#E3B183" stroke="#3A1F0C" stroke-width="3"/>
+      </g>
+      <g class="p-peu-d">
+      <ellipse cx="140" cy="227" rx="21" ry="9" fill="#E3B183" stroke="#3A1F0C" stroke-width="3"/>
+      </g>
+      <g class="p-orelles">
+      <circle cx="56" cy="86" r="23" fill="#8B5530" stroke="#3A1F0C" stroke-width="3.5"/>
+      <circle cx="56" cy="86" r="13" fill="#F2D0A2"/>
+      <circle cx="184" cy="86" r="23" fill="#8B5530" stroke="#3A1F0C" stroke-width="3.5"/>
+      <circle cx="184" cy="86" r="13" fill="#F2D0A2"/>
+      </g>
+      <ellipse cx="120" cy="182" rx="50" ry="52" fill="#8B5530" stroke="#3A1F0C" stroke-width="3.5"/>
+      <ellipse cx="120" cy="190" rx="32" ry="33" fill="#F2D0A2"/>
+      <circle cx="120" cy="82" r="60" fill="#8B5530" stroke="#3A1F0C" stroke-width="3.5"/>
+      <path d="M110 26 Q114 6 124 22 Q132 10 134 28" fill="#8B5530" stroke="#3A1F0C" stroke-width="3" stroke-linejoin="round"/>
+      <path d="M120 58 C132 38 170 44 168 76 C168 102 152 130 120 132 C88 130 72 102 72 76 C70 44 108 38 120 58Z" fill="#F2D0A2" stroke="#3A1F0C" stroke-width="2.5"/>
+      <g class="p-ulls-normal">
+      <circle cx="98" cy="80" r="13" fill="#fff" stroke="#3A1F0C" stroke-width="2.5"/>
+      <circle cx="142" cy="80" r="13" fill="#fff" stroke="#3A1F0C" stroke-width="2.5"/>
+      <g class="p-nines">
+      <circle cx="99" cy="82" r="8.1" fill="#160C04"/>
+      <circle cx="143" cy="82" r="8.1" fill="#160C04"/>
+      <circle cx="102" cy="78" r="3.2" fill="#fff"/>
+      <circle cx="146" cy="78" r="3.2" fill="#fff"/>
+      </g>
+      </g>
+      <g class="p-ulls-sorpresa" opacity="0">
+      <circle cx="98" cy="80" r="16" fill="#fff" stroke="#3A1F0C" stroke-width="2.5"/>
+      <circle cx="142" cy="80" r="16" fill="#fff" stroke="#3A1F0C" stroke-width="2.5"/>
+      <circle cx="98" cy="80" r="4" fill="#160C04"/>
+      <circle cx="142" cy="80" r="4" fill="#160C04"/>
+      </g>
+      <g class="p-ulls-cors" opacity="0">
+      <path d="M98 91 C78 79 87 62 98 73 C109 62 118 79 98 91Z" fill="#FF3B5C" stroke="#3A1F0C" stroke-width="2.5"/>
+      <path d="M142 91 C122 79 131 62 142 73 C153 62 162 79 142 91Z" fill="#FF3B5C" stroke="#3A1F0C" stroke-width="2.5"/>
+      </g>
+      <g class="p-ulls-contents" opacity="0">
+      <path d="M86 84 Q98 68 110 84" stroke="#3A1F0C" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+      <path d="M130 84 Q142 68 154 84" stroke="#3A1F0C" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+      </g>
+      <g class="p-ulls-parpella" opacity="0">
+      <path d="M86 78 Q98 88 110 78" stroke="#3A1F0C" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+      <path d="M130 78 Q142 88 154 78" stroke="#3A1F0C" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+      </g>
+      <g class="p-ulls-tancats" opacity="0">
+      <path d="M87 71 L107 80 L87 89" stroke="#3A1F0C" stroke-width="4.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M153 71 L133 80 L153 89" stroke="#3A1F0C" stroke-width="4.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      </g>
+      <ellipse cx="113" cy="98" rx="3.2" ry="4" fill="#5A341A"/>
+      <ellipse cx="127" cy="98" rx="3.2" ry="4" fill="#5A341A"/>
+      <g class="p-boca-somriure">
+      <path d="M104 107 Q120 124 136 107" stroke="#3A1F0C" stroke-width="4" fill="none" stroke-linecap="round"/>
+      </g>
+      <g class="p-boca-oberta" opacity="0">
+      <path d="M103 106 Q120 101 137 106 Q135 128 120 130 Q105 128 103 106Z" fill="#5B1712" stroke="#3A1F0C" stroke-width="3.5"/>
+      <path d="M108 124 Q120 114 132 124 Q120 132 108 124Z" fill="#FF7A8A"/>
+      </g>
+      <g class="p-boca-enorme" opacity="0">
+      <ellipse cx="120" cy="116" rx="25" ry="23" fill="#5B1712" stroke="#3A1F0C" stroke-width="3.5"/>
+      <path d="M106 131 Q120 120 134 131 Q120 140 106 131Z" fill="#FF7A8A"/>
+      <rect x="110" y="94" width="9" height="9" rx="2" fill="#fff" stroke="#3A1F0C" stroke-width="2"/>
+      <rect x="121" y="94" width="9" height="9" rx="2" fill="#fff" stroke="#3A1F0C" stroke-width="2"/>
+      </g>
+      <g class="p-boca-mastega" opacity="0">
+      <path d="M102 112 Q111 103 120 112 Q129 121 138 110" stroke="#3A1F0C" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+      </g>
+      <g class="p-molles" opacity="0">
+      <circle cx="100" cy="120" r="2.6" fill="#C98A4B"/>
+      <circle cx="139" cy="117" r="2.2" fill="#8A5426"/>
+      <circle cx="108" cy="127" r="1.8" fill="#8A5426"/>
+      <circle cx="132" cy="126" r="2.4" fill="#C98A4B"/>
+      <circle cx="96" cy="112" r="1.6" fill="#C98A4B"/>
+      <circle cx="145" cy="108" r="1.8" fill="#C98A4B"/>
+      </g>
+      <g class="p-bra-e">
+      <g transform="translate(80 142)">
+      <path d="M0 0 L0 52" stroke="#3A1F0C" stroke-width="20" stroke-linecap="round"/>
+      <path d="M0 0 L0 52" stroke="#8B5530" stroke-width="14" stroke-linecap="round"/>
+      <g class="p-g-sencera" opacity="0" transform="translate(0 64) scale(1.3)">
+      <g>
+      <circle r="22" fill="#D9A15E" stroke="#3A1F0C" stroke-width="3"/>
+      <path d="M-13 -9 q4 -7 11 -9" stroke="#F2CB91" stroke-width="3" fill="none" stroke-linecap="round"/>
+      <circle cx="-9" cy="-8" r="3.6" fill="#5A341A"/>
+      <circle cx="8" cy="-12" r="3.2" fill="#5A341A"/>
+      <circle cx="11" cy="6" r="3.8" fill="#5A341A"/>
+      <circle cx="-6" cy="10" r="3.2" fill="#5A341A"/>
+      <circle cx="-14" cy="4" r="2.6" fill="#5A341A"/>
+      <circle cx="2" cy="-1" r="2.4" fill="#5A341A"/>
+      </g>
+      </g>
+      <g class="p-g-mossegada" opacity="0" transform="translate(0 64) scale(1.3)">
+      <g mask="url(#mg-mico-mos)">
+      <circle r="22" fill="#D9A15E" stroke="#3A1F0C" stroke-width="3"/>
+      <path d="M-13 -9 q4 -7 11 -9" stroke="#F2CB91" stroke-width="3" fill="none" stroke-linecap="round"/>
+      <circle cx="-9" cy="-8" r="3.6" fill="#5A341A"/>
+      <circle cx="8" cy="-12" r="3.2" fill="#5A341A"/>
+      <circle cx="11" cy="6" r="3.8" fill="#5A341A"/>
+      <circle cx="-6" cy="10" r="3.2" fill="#5A341A"/>
+      <circle cx="-14" cy="4" r="2.6" fill="#5A341A"/>
+      <circle cx="2" cy="-1" r="2.4" fill="#5A341A"/>
+      </g>
+      </g>
+      <g class="p-g-mitja" opacity="0" transform="translate(0 64) scale(1.3)">
+      <g mask="url(#mg-mico-mitja)">
+      <circle r="22" fill="#D9A15E" stroke="#3A1F0C" stroke-width="3"/>
+      <path d="M-13 -9 q4 -7 11 -9" stroke="#F2CB91" stroke-width="3" fill="none" stroke-linecap="round"/>
+      <circle cx="-9" cy="-8" r="3.6" fill="#5A341A"/>
+      <circle cx="8" cy="-12" r="3.2" fill="#5A341A"/>
+      <circle cx="11" cy="6" r="3.8" fill="#5A341A"/>
+      <circle cx="-6" cy="10" r="3.2" fill="#5A341A"/>
+      <circle cx="-14" cy="4" r="2.6" fill="#5A341A"/>
+      <circle cx="2" cy="-1" r="2.4" fill="#5A341A"/>
+      </g>
+      </g>
+      <circle cx="0" cy="56" r="11" fill="#F2D0A2" stroke="#3A1F0C" stroke-width="3"/>
+      <path d="M-6 63 v4 M0 64 v4 M6 63 v4" stroke="#3A1F0C" stroke-width="2.4" stroke-linecap="round"/>
+      </g>
+      </g>
+      <g class="p-bra-d">
+      <g transform="translate(160 142)">
+      <path d="M0 0 L0 52" stroke="#3A1F0C" stroke-width="20" stroke-linecap="round"/>
+      <path d="M0 0 L0 52" stroke="#8B5530" stroke-width="14" stroke-linecap="round"/>
+      <g class="p-g-sencera" opacity="0" transform="translate(0 64) scale(1.3)">
+      <g>
+      <circle r="22" fill="#D9A15E" stroke="#3A1F0C" stroke-width="3"/>
+      <path d="M-13 -9 q4 -7 11 -9" stroke="#F2CB91" stroke-width="3" fill="none" stroke-linecap="round"/>
+      <circle cx="-9" cy="-8" r="3.6" fill="#5A341A"/>
+      <circle cx="8" cy="-12" r="3.2" fill="#5A341A"/>
+      <circle cx="11" cy="6" r="3.8" fill="#5A341A"/>
+      <circle cx="-6" cy="10" r="3.2" fill="#5A341A"/>
+      <circle cx="-14" cy="4" r="2.6" fill="#5A341A"/>
+      <circle cx="2" cy="-1" r="2.4" fill="#5A341A"/>
+      </g>
+      </g>
+      <g class="p-g-mossegada" opacity="0" transform="translate(0 64) scale(1.3)">
+      <g mask="url(#mg-mico-mos)">
+      <circle r="22" fill="#D9A15E" stroke="#3A1F0C" stroke-width="3"/>
+      <path d="M-13 -9 q4 -7 11 -9" stroke="#F2CB91" stroke-width="3" fill="none" stroke-linecap="round"/>
+      <circle cx="-9" cy="-8" r="3.6" fill="#5A341A"/>
+      <circle cx="8" cy="-12" r="3.2" fill="#5A341A"/>
+      <circle cx="11" cy="6" r="3.8" fill="#5A341A"/>
+      <circle cx="-6" cy="10" r="3.2" fill="#5A341A"/>
+      <circle cx="-14" cy="4" r="2.6" fill="#5A341A"/>
+      <circle cx="2" cy="-1" r="2.4" fill="#5A341A"/>
+      </g>
+      </g>
+      <g class="p-g-mitja" opacity="0" transform="translate(0 64) scale(1.3)">
+      <g mask="url(#mg-mico-mitja)">
+      <circle r="22" fill="#D9A15E" stroke="#3A1F0C" stroke-width="3"/>
+      <path d="M-13 -9 q4 -7 11 -9" stroke="#F2CB91" stroke-width="3" fill="none" stroke-linecap="round"/>
+      <circle cx="-9" cy="-8" r="3.6" fill="#5A341A"/>
+      <circle cx="8" cy="-12" r="3.2" fill="#5A341A"/>
+      <circle cx="11" cy="6" r="3.8" fill="#5A341A"/>
+      <circle cx="-6" cy="10" r="3.2" fill="#5A341A"/>
+      <circle cx="-14" cy="4" r="2.6" fill="#5A341A"/>
+      <circle cx="2" cy="-1" r="2.4" fill="#5A341A"/>
+      </g>
+      </g>
+      <circle cx="0" cy="56" r="11" fill="#F2D0A2" stroke="#3A1F0C" stroke-width="3"/>
+      <path d="M-6 63 v4 M0 64 v4 M6 63 v4" stroke="#3A1F0C" stroke-width="2.4" stroke-linecap="round"/>
+      </g>
+      </g>
+      </svg>` },
+    os: { nom: "L'ós rentador", cua: "160px 196px", svg: `
+      <svg viewBox="0 0 240 240" width="100%" height="100%" overflow="visible" aria-hidden="true">
+      <defs>
+      <mask id="mg-os-mos" maskUnits="userSpaceOnUse" maskContentUnits="userSpaceOnUse" x="-30" y="-30" width="60" height="60">
+      <rect x="-30" y="-30" width="60" height="60" fill="#fff"/>
+      <circle cx="-5" cy="-21" r="11" fill="#000"/>
+      <circle cx="9" cy="-22" r="9" fill="#000"/>
+      <circle cx="-17" cy="-13" r="8" fill="#000"/>
+      </mask>
+      <mask id="mg-os-mitja" maskUnits="userSpaceOnUse" maskContentUnits="userSpaceOnUse" x="-30" y="-30" width="60" height="60">
+      <rect x="-30" y="-30" width="60" height="60" fill="#fff"/>
+      <circle cx="0" cy="-10" r="17" fill="#000"/>
+      <circle cx="-15" cy="-12" r="13" fill="#000"/>
+      <circle cx="15" cy="-12" r="13" fill="#000"/>
+      <circle cx="0" cy="-24" r="12" fill="#000"/>
+      </mask>
+      </defs>
+      <g class="p-cua">
+      <ellipse cx="163" cy="196" rx="17" ry="14" transform="rotate(0 163 196)" fill="#8F8E9C" stroke="#3A1F0C" stroke-width="3"/>
+      <ellipse cx="183" cy="188" rx="17" ry="14" transform="rotate(-25 183 188)" fill="#45414F" stroke="#3A1F0C" stroke-width="3"/>
+      <ellipse cx="199" cy="174" rx="17" ry="14" transform="rotate(-45 199 174)" fill="#8F8E9C" stroke="#3A1F0C" stroke-width="3"/>
+      <ellipse cx="209" cy="156" rx="17" ry="14" transform="rotate(-65 209 156)" fill="#45414F" stroke="#3A1F0C" stroke-width="3"/>
+      <ellipse cx="213" cy="136" rx="17" ry="14" transform="rotate(-80 213 136)" fill="#8F8E9C" stroke="#3A1F0C" stroke-width="3"/>
+      <ellipse cx="212" cy="118" rx="17" ry="14" transform="rotate(-95 212 118)" fill="#45414F" stroke="#3A1F0C" stroke-width="3"/>
+      </g>
+      <g class="p-peu-e">
+      <ellipse cx="100" cy="227" rx="21" ry="9" fill="#45414F" stroke="#3A1F0C" stroke-width="3"/>
+      </g>
+      <g class="p-peu-d">
+      <ellipse cx="140" cy="227" rx="21" ry="9" fill="#45414F" stroke="#3A1F0C" stroke-width="3"/>
+      </g>
+      <g class="p-orelles">
+      <path d="M58 62 L74 14 L100 50 Z" fill="#8F8E9C" stroke="#3A1F0C" stroke-width="3.5" stroke-linejoin="round"/>
+      <path d="M67 52 L75 28 L89 47 Z" fill="#45414F"/>
+      <path d="M182 62 L166 14 L140 50 Z" fill="#8F8E9C" stroke="#3A1F0C" stroke-width="3.5" stroke-linejoin="round"/>
+      <path d="M173 52 L165 28 L151 47 Z" fill="#45414F"/>
+      </g>
+      <ellipse cx="120" cy="180" rx="54" ry="52" fill="#8F8E9C" stroke="#3A1F0C" stroke-width="3.5"/>
+      <ellipse cx="120" cy="190" rx="33" ry="31" fill="#F1EEF5"/>
+      <ellipse cx="120" cy="84" rx="66" ry="54" fill="#8F8E9C" stroke="#3A1F0C" stroke-width="3.5"/>
+      <path d="M58 96 Q50 112 66 118 Q70 108 78 106Z M182 96 Q190 112 174 118 Q170 108 162 106Z" fill="#F1EEF5" stroke="#3A1F0C" stroke-width="2.5"/>
+      <path d="M112 32 Q120 60 128 32 Q120 36 112 32Z" fill="#45414F"/>
+      <path d="M56 78 C64 56 98 58 120 70 C142 58 176 56 184 78 C180 98 152 102 134 90 C127 86 113 86 106 90 C88 102 60 98 56 78Z" fill="#26232C"/>
+      <ellipse cx="120" cy="110" rx="29" ry="21" fill="#F1EEF5" stroke="#3A1F0C" stroke-width="2.5"/>
+      <g class="p-ulls-normal">
+      <circle cx="98" cy="80" r="13" fill="#fff" stroke="#3A1F0C" stroke-width="2.5"/>
+      <circle cx="142" cy="80" r="13" fill="#fff" stroke="#3A1F0C" stroke-width="2.5"/>
+      <g class="p-nines">
+      <circle cx="99" cy="82" r="8.1" fill="#160C04"/>
+      <circle cx="143" cy="82" r="8.1" fill="#160C04"/>
+      <circle cx="102" cy="78" r="3.2" fill="#fff"/>
+      <circle cx="146" cy="78" r="3.2" fill="#fff"/>
+      </g>
+      </g>
+      <g class="p-ulls-sorpresa" opacity="0">
+      <circle cx="98" cy="80" r="16" fill="#fff" stroke="#3A1F0C" stroke-width="2.5"/>
+      <circle cx="142" cy="80" r="16" fill="#fff" stroke="#3A1F0C" stroke-width="2.5"/>
+      <circle cx="98" cy="80" r="4" fill="#160C04"/>
+      <circle cx="142" cy="80" r="4" fill="#160C04"/>
+      </g>
+      <g class="p-ulls-cors" opacity="0">
+      <path d="M98 91 C78 79 87 62 98 73 C109 62 118 79 98 91Z" fill="#FF3B5C" stroke="#3A1F0C" stroke-width="2.5"/>
+      <path d="M142 91 C122 79 131 62 142 73 C153 62 162 79 142 91Z" fill="#FF3B5C" stroke="#3A1F0C" stroke-width="2.5"/>
+      </g>
+      <g class="p-ulls-contents" opacity="0">
+      <path d="M86 84 Q98 68 110 84" stroke="#F1EEF5" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+      <path d="M130 84 Q142 68 154 84" stroke="#F1EEF5" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+      </g>
+      <g class="p-ulls-parpella" opacity="0">
+      <path d="M86 78 Q98 88 110 78" stroke="#F1EEF5" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+      <path d="M130 78 Q142 88 154 78" stroke="#F1EEF5" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+      </g>
+      <g class="p-ulls-tancats" opacity="0">
+      <path d="M87 71 L107 80 L87 89" stroke="#F1EEF5" stroke-width="4.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M153 71 L133 80 L153 89" stroke="#F1EEF5" stroke-width="4.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      </g>
+      <ellipse cx="120" cy="96" rx="9" ry="6.5" fill="#1C1A20"/>
+      <ellipse cx="117" cy="94" rx="3" ry="1.6" fill="#fff" opacity=".6"/>
+      <g class="p-boca-somriure">
+      <path d="M104 107 Q120 124 136 107" stroke="#3A1F0C" stroke-width="4" fill="none" stroke-linecap="round"/>
+      </g>
+      <g class="p-boca-oberta" opacity="0">
+      <path d="M103 106 Q120 101 137 106 Q135 128 120 130 Q105 128 103 106Z" fill="#5B1712" stroke="#3A1F0C" stroke-width="3.5"/>
+      <path d="M108 124 Q120 114 132 124 Q120 132 108 124Z" fill="#FF7A8A"/>
+      </g>
+      <g class="p-boca-enorme" opacity="0">
+      <ellipse cx="120" cy="116" rx="25" ry="23" fill="#5B1712" stroke="#3A1F0C" stroke-width="3.5"/>
+      <path d="M106 131 Q120 120 134 131 Q120 140 106 131Z" fill="#FF7A8A"/>
+      <rect x="110" y="94" width="9" height="9" rx="2" fill="#fff" stroke="#3A1F0C" stroke-width="2"/>
+      <rect x="121" y="94" width="9" height="9" rx="2" fill="#fff" stroke="#3A1F0C" stroke-width="2"/>
+      </g>
+      <g class="p-boca-mastega" opacity="0">
+      <path d="M102 112 Q111 103 120 112 Q129 121 138 110" stroke="#3A1F0C" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+      </g>
+      <g class="p-molles" opacity="0">
+      <circle cx="100" cy="120" r="2.6" fill="#C98A4B"/>
+      <circle cx="139" cy="117" r="2.2" fill="#8A5426"/>
+      <circle cx="108" cy="127" r="1.8" fill="#8A5426"/>
+      <circle cx="132" cy="126" r="2.4" fill="#C98A4B"/>
+      <circle cx="96" cy="112" r="1.6" fill="#C98A4B"/>
+      <circle cx="145" cy="108" r="1.8" fill="#C98A4B"/>
+      </g>
+      <g class="p-bra-e">
+      <g transform="translate(80 142)">
+      <path d="M0 0 L0 52" stroke="#3A1F0C" stroke-width="21" stroke-linecap="round"/>
+      <path d="M0 0 L0 52" stroke="#8F8E9C" stroke-width="15" stroke-linecap="round"/>
+      <g class="p-g-sencera" opacity="0" transform="translate(0 64) scale(1.3)">
+      <g>
+      <circle r="22" fill="#D9A15E" stroke="#3A1F0C" stroke-width="3"/>
+      <path d="M-13 -9 q4 -7 11 -9" stroke="#F2CB91" stroke-width="3" fill="none" stroke-linecap="round"/>
+      <circle cx="-9" cy="-8" r="3.6" fill="#5A341A"/>
+      <circle cx="8" cy="-12" r="3.2" fill="#5A341A"/>
+      <circle cx="11" cy="6" r="3.8" fill="#5A341A"/>
+      <circle cx="-6" cy="10" r="3.2" fill="#5A341A"/>
+      <circle cx="-14" cy="4" r="2.6" fill="#5A341A"/>
+      <circle cx="2" cy="-1" r="2.4" fill="#5A341A"/>
+      </g>
+      </g>
+      <g class="p-g-mossegada" opacity="0" transform="translate(0 64) scale(1.3)">
+      <g mask="url(#mg-os-mos)">
+      <circle r="22" fill="#D9A15E" stroke="#3A1F0C" stroke-width="3"/>
+      <path d="M-13 -9 q4 -7 11 -9" stroke="#F2CB91" stroke-width="3" fill="none" stroke-linecap="round"/>
+      <circle cx="-9" cy="-8" r="3.6" fill="#5A341A"/>
+      <circle cx="8" cy="-12" r="3.2" fill="#5A341A"/>
+      <circle cx="11" cy="6" r="3.8" fill="#5A341A"/>
+      <circle cx="-6" cy="10" r="3.2" fill="#5A341A"/>
+      <circle cx="-14" cy="4" r="2.6" fill="#5A341A"/>
+      <circle cx="2" cy="-1" r="2.4" fill="#5A341A"/>
+      </g>
+      </g>
+      <g class="p-g-mitja" opacity="0" transform="translate(0 64) scale(1.3)">
+      <g mask="url(#mg-os-mitja)">
+      <circle r="22" fill="#D9A15E" stroke="#3A1F0C" stroke-width="3"/>
+      <path d="M-13 -9 q4 -7 11 -9" stroke="#F2CB91" stroke-width="3" fill="none" stroke-linecap="round"/>
+      <circle cx="-9" cy="-8" r="3.6" fill="#5A341A"/>
+      <circle cx="8" cy="-12" r="3.2" fill="#5A341A"/>
+      <circle cx="11" cy="6" r="3.8" fill="#5A341A"/>
+      <circle cx="-6" cy="10" r="3.2" fill="#5A341A"/>
+      <circle cx="-14" cy="4" r="2.6" fill="#5A341A"/>
+      <circle cx="2" cy="-1" r="2.4" fill="#5A341A"/>
+      </g>
+      </g>
+      <circle cx="0" cy="56" r="11" fill="#45414F" stroke="#3A1F0C" stroke-width="3"/>
+      <path d="M-6 63 v4 M0 64 v4 M6 63 v4" stroke="#3A1F0C" stroke-width="2.4" stroke-linecap="round"/>
+      </g>
+      </g>
+      <g class="p-bra-d">
+      <g transform="translate(160 142)">
+      <path d="M0 0 L0 52" stroke="#3A1F0C" stroke-width="21" stroke-linecap="round"/>
+      <path d="M0 0 L0 52" stroke="#8F8E9C" stroke-width="15" stroke-linecap="round"/>
+      <g class="p-g-sencera" opacity="0" transform="translate(0 64) scale(1.3)">
+      <g>
+      <circle r="22" fill="#D9A15E" stroke="#3A1F0C" stroke-width="3"/>
+      <path d="M-13 -9 q4 -7 11 -9" stroke="#F2CB91" stroke-width="3" fill="none" stroke-linecap="round"/>
+      <circle cx="-9" cy="-8" r="3.6" fill="#5A341A"/>
+      <circle cx="8" cy="-12" r="3.2" fill="#5A341A"/>
+      <circle cx="11" cy="6" r="3.8" fill="#5A341A"/>
+      <circle cx="-6" cy="10" r="3.2" fill="#5A341A"/>
+      <circle cx="-14" cy="4" r="2.6" fill="#5A341A"/>
+      <circle cx="2" cy="-1" r="2.4" fill="#5A341A"/>
+      </g>
+      </g>
+      <g class="p-g-mossegada" opacity="0" transform="translate(0 64) scale(1.3)">
+      <g mask="url(#mg-os-mos)">
+      <circle r="22" fill="#D9A15E" stroke="#3A1F0C" stroke-width="3"/>
+      <path d="M-13 -9 q4 -7 11 -9" stroke="#F2CB91" stroke-width="3" fill="none" stroke-linecap="round"/>
+      <circle cx="-9" cy="-8" r="3.6" fill="#5A341A"/>
+      <circle cx="8" cy="-12" r="3.2" fill="#5A341A"/>
+      <circle cx="11" cy="6" r="3.8" fill="#5A341A"/>
+      <circle cx="-6" cy="10" r="3.2" fill="#5A341A"/>
+      <circle cx="-14" cy="4" r="2.6" fill="#5A341A"/>
+      <circle cx="2" cy="-1" r="2.4" fill="#5A341A"/>
+      </g>
+      </g>
+      <g class="p-g-mitja" opacity="0" transform="translate(0 64) scale(1.3)">
+      <g mask="url(#mg-os-mitja)">
+      <circle r="22" fill="#D9A15E" stroke="#3A1F0C" stroke-width="3"/>
+      <path d="M-13 -9 q4 -7 11 -9" stroke="#F2CB91" stroke-width="3" fill="none" stroke-linecap="round"/>
+      <circle cx="-9" cy="-8" r="3.6" fill="#5A341A"/>
+      <circle cx="8" cy="-12" r="3.2" fill="#5A341A"/>
+      <circle cx="11" cy="6" r="3.8" fill="#5A341A"/>
+      <circle cx="-6" cy="10" r="3.2" fill="#5A341A"/>
+      <circle cx="-14" cy="4" r="2.6" fill="#5A341A"/>
+      <circle cx="2" cy="-1" r="2.4" fill="#5A341A"/>
+      </g>
+      </g>
+      <circle cx="0" cy="56" r="11" fill="#45414F" stroke="#3A1F0C" stroke-width="3"/>
+      <path d="M-6 63 v4 M0 64 v4 M6 63 v4" stroke="#3A1F0C" stroke-width="2.4" stroke-linecap="round"/>
+      </g>
+      </g>
+      </svg>` },
+  };
+}
+
+function MG_monstre(opcions) {
+  const o = Array.isArray(opcions) ? { noms: opcions } : (opcions || {});
   const DURADA = 7700, TINTA = "#3A1F0C", FRASE = "Tinc gana… no n'hi ha més?";
   const DIST = 64, MIDA = 1.3;   // on té la galeta (des de l'espatlla) i com de grossa és
+  const tots = MG_personatges();
+  const def = tots[o.personatge] || tots.mico;
 
-  const MICO = `
-    <svg viewBox="0 0 240 240" width="100%" height="100%" overflow="visible" aria-hidden="true">
-    <defs>
-    <mask id="mg-mico-mos" maskUnits="userSpaceOnUse" maskContentUnits="userSpaceOnUse" x="-30" y="-30" width="60" height="60">
-    <rect x="-30" y="-30" width="60" height="60" fill="#fff"/>
-    <circle cx="-5" cy="-21" r="11" fill="#000"/>
-    <circle cx="9" cy="-22" r="9" fill="#000"/>
-    <circle cx="-17" cy="-13" r="8" fill="#000"/>
-    </mask>
-    <mask id="mg-mico-mitja" maskUnits="userSpaceOnUse" maskContentUnits="userSpaceOnUse" x="-30" y="-30" width="60" height="60">
-    <rect x="-30" y="-30" width="60" height="60" fill="#fff"/>
-    <circle cx="0" cy="-10" r="17" fill="#000"/>
-    <circle cx="-15" cy="-12" r="13" fill="#000"/>
-    <circle cx="15" cy="-12" r="13" fill="#000"/>
-    <circle cx="0" cy="-24" r="12" fill="#000"/>
-    </mask>
-    </defs>
-    <g class="p-cua">
-    <path d="M150 206 C196 220 228 186 214 152 C204 128 176 134 182 154 C186 166 200 160 198 150" stroke="#3A1F0C" stroke-width="16" fill="none" stroke-linecap="round"/>
-    <path d="M150 206 C196 220 228 186 214 152 C204 128 176 134 182 154 C186 166 200 160 198 150" stroke="#8B5530" stroke-width="10" fill="none" stroke-linecap="round"/>
-    </g>
-    <g class="p-peu-e">
-    <ellipse cx="100" cy="227" rx="21" ry="9" fill="#E3B183" stroke="#3A1F0C" stroke-width="3"/>
-    </g>
-    <g class="p-peu-d">
-    <ellipse cx="140" cy="227" rx="21" ry="9" fill="#E3B183" stroke="#3A1F0C" stroke-width="3"/>
-    </g>
-    <g class="p-orelles">
-    <circle cx="56" cy="86" r="23" fill="#8B5530" stroke="#3A1F0C" stroke-width="3.5"/>
-    <circle cx="56" cy="86" r="13" fill="#F2D0A2"/>
-    <circle cx="184" cy="86" r="23" fill="#8B5530" stroke="#3A1F0C" stroke-width="3.5"/>
-    <circle cx="184" cy="86" r="13" fill="#F2D0A2"/>
-    </g>
-    <ellipse cx="120" cy="182" rx="50" ry="52" fill="#8B5530" stroke="#3A1F0C" stroke-width="3.5"/>
-    <ellipse cx="120" cy="190" rx="32" ry="33" fill="#F2D0A2"/>
-    <circle cx="120" cy="82" r="60" fill="#8B5530" stroke="#3A1F0C" stroke-width="3.5"/>
-    <path d="M110 26 Q114 6 124 22 Q132 10 134 28" fill="#8B5530" stroke="#3A1F0C" stroke-width="3" stroke-linejoin="round"/>
-    <path d="M120 58 C132 38 170 44 168 76 C168 102 152 130 120 132 C88 130 72 102 72 76 C70 44 108 38 120 58Z" fill="#F2D0A2" stroke="#3A1F0C" stroke-width="2.5"/>
-    <g class="p-ulls-normal">
-    <circle cx="98" cy="80" r="13" fill="#fff" stroke="#3A1F0C" stroke-width="2.5"/>
-    <circle cx="142" cy="80" r="13" fill="#fff" stroke="#3A1F0C" stroke-width="2.5"/>
-    <g class="p-nines">
-    <circle cx="99" cy="82" r="8.1" fill="#160C04"/>
-    <circle cx="143" cy="82" r="8.1" fill="#160C04"/>
-    <circle cx="102" cy="78" r="3.2" fill="#fff"/>
-    <circle cx="146" cy="78" r="3.2" fill="#fff"/>
-    </g>
-    </g>
-    <g class="p-ulls-sorpresa" opacity="0">
-    <circle cx="98" cy="80" r="16" fill="#fff" stroke="#3A1F0C" stroke-width="2.5"/>
-    <circle cx="142" cy="80" r="16" fill="#fff" stroke="#3A1F0C" stroke-width="2.5"/>
-    <circle cx="98" cy="80" r="4" fill="#160C04"/>
-    <circle cx="142" cy="80" r="4" fill="#160C04"/>
-    </g>
-    <g class="p-ulls-cors" opacity="0">
-    <path d="M98 91 C78 79 87 62 98 73 C109 62 118 79 98 91Z" fill="#FF3B5C" stroke="#3A1F0C" stroke-width="2.5"/>
-    <path d="M142 91 C122 79 131 62 142 73 C153 62 162 79 142 91Z" fill="#FF3B5C" stroke="#3A1F0C" stroke-width="2.5"/>
-    </g>
-    <g class="p-ulls-contents" opacity="0">
-    <path d="M86 84 Q98 68 110 84" stroke="#3A1F0C" stroke-width="4.5" fill="none" stroke-linecap="round"/>
-    <path d="M130 84 Q142 68 154 84" stroke="#3A1F0C" stroke-width="4.5" fill="none" stroke-linecap="round"/>
-    </g>
-    <g class="p-ulls-parpella" opacity="0">
-    <path d="M86 78 Q98 88 110 78" stroke="#3A1F0C" stroke-width="4.5" fill="none" stroke-linecap="round"/>
-    <path d="M130 78 Q142 88 154 78" stroke="#3A1F0C" stroke-width="4.5" fill="none" stroke-linecap="round"/>
-    </g>
-    <g class="p-ulls-tancats" opacity="0">
-    <path d="M87 71 L107 80 L87 89" stroke="#3A1F0C" stroke-width="4.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="M153 71 L133 80 L153 89" stroke="#3A1F0C" stroke-width="4.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-    </g>
-    <ellipse cx="113" cy="98" rx="3.2" ry="4" fill="#5A341A"/>
-    <ellipse cx="127" cy="98" rx="3.2" ry="4" fill="#5A341A"/>
-    <g class="p-boca-somriure">
-    <path d="M104 107 Q120 124 136 107" stroke="#3A1F0C" stroke-width="4" fill="none" stroke-linecap="round"/>
-    </g>
-    <g class="p-boca-oberta" opacity="0">
-    <path d="M103 106 Q120 101 137 106 Q135 128 120 130 Q105 128 103 106Z" fill="#5B1712" stroke="#3A1F0C" stroke-width="3.5"/>
-    <path d="M108 124 Q120 114 132 124 Q120 132 108 124Z" fill="#FF7A8A"/>
-    </g>
-    <g class="p-boca-enorme" opacity="0">
-    <ellipse cx="120" cy="116" rx="25" ry="23" fill="#5B1712" stroke="#3A1F0C" stroke-width="3.5"/>
-    <path d="M106 131 Q120 120 134 131 Q120 140 106 131Z" fill="#FF7A8A"/>
-    <rect x="110" y="94" width="9" height="9" rx="2" fill="#fff" stroke="#3A1F0C" stroke-width="2"/>
-    <rect x="121" y="94" width="9" height="9" rx="2" fill="#fff" stroke="#3A1F0C" stroke-width="2"/>
-    </g>
-    <g class="p-boca-mastega" opacity="0">
-    <path d="M102 112 Q111 103 120 112 Q129 121 138 110" stroke="#3A1F0C" stroke-width="4.5" fill="none" stroke-linecap="round"/>
-    </g>
-    <g class="p-molles" opacity="0">
-    <circle cx="100" cy="120" r="2.6" fill="#C98A4B"/>
-    <circle cx="139" cy="117" r="2.2" fill="#8A5426"/>
-    <circle cx="108" cy="127" r="1.8" fill="#8A5426"/>
-    <circle cx="132" cy="126" r="2.4" fill="#C98A4B"/>
-    <circle cx="96" cy="112" r="1.6" fill="#C98A4B"/>
-    <circle cx="145" cy="108" r="1.8" fill="#C98A4B"/>
-    </g>
-    <g class="p-bra-e">
-    <g transform="translate(80 142)">
-    <path d="M0 0 L0 52" stroke="#3A1F0C" stroke-width="20" stroke-linecap="round"/>
-    <path d="M0 0 L0 52" stroke="#8B5530" stroke-width="14" stroke-linecap="round"/>
-    <g class="p-g-sencera" opacity="0" transform="translate(0 64) scale(1.3)">
+  const GALETA = `<svg viewBox="-26 -26 52 52" width="100%" height="100%" overflow="visible" aria-hidden="true">
     <g>
     <circle r="22" fill="#D9A15E" stroke="#3A1F0C" stroke-width="3"/>
     <path d="M-13 -9 q4 -7 11 -9" stroke="#F2CB91" stroke-width="3" fill="none" stroke-linecap="round"/>
@@ -134,92 +425,8 @@ function MG_monstre(noms) {
     <circle cx="-6" cy="10" r="3.2" fill="#5A341A"/>
     <circle cx="-14" cy="4" r="2.6" fill="#5A341A"/>
     <circle cx="2" cy="-1" r="2.4" fill="#5A341A"/>
-    </g>
-    </g>
-    <g class="p-g-mossegada" opacity="0" transform="translate(0 64) scale(1.3)">
-    <g mask="url(#mg-mico-mos)">
-    <circle r="22" fill="#D9A15E" stroke="#3A1F0C" stroke-width="3"/>
-    <path d="M-13 -9 q4 -7 11 -9" stroke="#F2CB91" stroke-width="3" fill="none" stroke-linecap="round"/>
-    <circle cx="-9" cy="-8" r="3.6" fill="#5A341A"/>
-    <circle cx="8" cy="-12" r="3.2" fill="#5A341A"/>
-    <circle cx="11" cy="6" r="3.8" fill="#5A341A"/>
-    <circle cx="-6" cy="10" r="3.2" fill="#5A341A"/>
-    <circle cx="-14" cy="4" r="2.6" fill="#5A341A"/>
-    <circle cx="2" cy="-1" r="2.4" fill="#5A341A"/>
-    </g>
-    </g>
-    <g class="p-g-mitja" opacity="0" transform="translate(0 64) scale(1.3)">
-    <g mask="url(#mg-mico-mitja)">
-    <circle r="22" fill="#D9A15E" stroke="#3A1F0C" stroke-width="3"/>
-    <path d="M-13 -9 q4 -7 11 -9" stroke="#F2CB91" stroke-width="3" fill="none" stroke-linecap="round"/>
-    <circle cx="-9" cy="-8" r="3.6" fill="#5A341A"/>
-    <circle cx="8" cy="-12" r="3.2" fill="#5A341A"/>
-    <circle cx="11" cy="6" r="3.8" fill="#5A341A"/>
-    <circle cx="-6" cy="10" r="3.2" fill="#5A341A"/>
-    <circle cx="-14" cy="4" r="2.6" fill="#5A341A"/>
-    <circle cx="2" cy="-1" r="2.4" fill="#5A341A"/>
-    </g>
-    </g>
-    <circle cx="0" cy="56" r="11" fill="#F2D0A2" stroke="#3A1F0C" stroke-width="3"/>
-    <path d="M-6 63 v4 M0 64 v4 M6 63 v4" stroke="#3A1F0C" stroke-width="2.4" stroke-linecap="round"/>
-    </g>
-    </g>
-    <g class="p-bra-d">
-    <g transform="translate(160 142)">
-    <path d="M0 0 L0 52" stroke="#3A1F0C" stroke-width="20" stroke-linecap="round"/>
-    <path d="M0 0 L0 52" stroke="#8B5530" stroke-width="14" stroke-linecap="round"/>
-    <g class="p-g-sencera" opacity="0" transform="translate(0 64) scale(1.3)">
-    <g>
-    <circle r="22" fill="#D9A15E" stroke="#3A1F0C" stroke-width="3"/>
-    <path d="M-13 -9 q4 -7 11 -9" stroke="#F2CB91" stroke-width="3" fill="none" stroke-linecap="round"/>
-    <circle cx="-9" cy="-8" r="3.6" fill="#5A341A"/>
-    <circle cx="8" cy="-12" r="3.2" fill="#5A341A"/>
-    <circle cx="11" cy="6" r="3.8" fill="#5A341A"/>
-    <circle cx="-6" cy="10" r="3.2" fill="#5A341A"/>
-    <circle cx="-14" cy="4" r="2.6" fill="#5A341A"/>
-    <circle cx="2" cy="-1" r="2.4" fill="#5A341A"/>
-    </g>
-    </g>
-    <g class="p-g-mossegada" opacity="0" transform="translate(0 64) scale(1.3)">
-    <g mask="url(#mg-mico-mos)">
-    <circle r="22" fill="#D9A15E" stroke="#3A1F0C" stroke-width="3"/>
-    <path d="M-13 -9 q4 -7 11 -9" stroke="#F2CB91" stroke-width="3" fill="none" stroke-linecap="round"/>
-    <circle cx="-9" cy="-8" r="3.6" fill="#5A341A"/>
-    <circle cx="8" cy="-12" r="3.2" fill="#5A341A"/>
-    <circle cx="11" cy="6" r="3.8" fill="#5A341A"/>
-    <circle cx="-6" cy="10" r="3.2" fill="#5A341A"/>
-    <circle cx="-14" cy="4" r="2.6" fill="#5A341A"/>
-    <circle cx="2" cy="-1" r="2.4" fill="#5A341A"/>
-    </g>
-    </g>
-    <g class="p-g-mitja" opacity="0" transform="translate(0 64) scale(1.3)">
-    <g mask="url(#mg-mico-mitja)">
-    <circle r="22" fill="#D9A15E" stroke="#3A1F0C" stroke-width="3"/>
-    <path d="M-13 -9 q4 -7 11 -9" stroke="#F2CB91" stroke-width="3" fill="none" stroke-linecap="round"/>
-    <circle cx="-9" cy="-8" r="3.6" fill="#5A341A"/>
-    <circle cx="8" cy="-12" r="3.2" fill="#5A341A"/>
-    <circle cx="11" cy="6" r="3.8" fill="#5A341A"/>
-    <circle cx="-6" cy="10" r="3.2" fill="#5A341A"/>
-    <circle cx="-14" cy="4" r="2.6" fill="#5A341A"/>
-    <circle cx="2" cy="-1" r="2.4" fill="#5A341A"/>
-    </g>
-    </g>
-    <circle cx="0" cy="56" r="11" fill="#F2D0A2" stroke="#3A1F0C" stroke-width="3"/>
-    <path d="M-6 63 v4 M0 64 v4 M6 63 v4" stroke="#3A1F0C" stroke-width="2.4" stroke-linecap="round"/>
-    </g>
     </g>
     </svg>`;
-  const GALETA = `
-    <g>
-    <circle r="22" fill="#D9A15E" stroke="#3A1F0C" stroke-width="3"/>
-    <path d="M-13 -9 q4 -7 11 -9" stroke="#F2CB91" stroke-width="3" fill="none" stroke-linecap="round"/>
-    <circle cx="-9" cy="-8" r="3.6" fill="#5A341A"/>
-    <circle cx="8" cy="-12" r="3.2" fill="#5A341A"/>
-    <circle cx="11" cy="6" r="3.8" fill="#5A341A"/>
-    <circle cx="-6" cy="10" r="3.2" fill="#5A341A"/>
-    <circle cx="-14" cy="4" r="2.6" fill="#5A341A"/>
-    <circle cx="2" cy="-1" r="2.4" fill="#5A341A"/>
-    </g>`;
   const TROS = [
     `<path d="M-9 -5 L6 -9 L9 4 L-2 9 L-8 3Z" fill="#D9A15E" stroke="${TINTA}" stroke-width="2.2" stroke-linejoin="round"/><circle cx="1" cy="0" r="2.6" fill="#5A341A"/>`,
     `<path d="M-8 -8 L8 -4 L4 8 L-9 4Z" fill="#D9A15E" stroke="${TINTA}" stroke-width="2.2" stroke-linejoin="round"/><circle cx="-1" cy="1" r="2.2" fill="#5A341A"/>`,
@@ -227,7 +434,7 @@ function MG_monstre(noms) {
   ].map((d) => `<svg viewBox="-12 -12 24 24" width="100%" height="100%" overflow="visible" aria-hidden="true">${d}</svg>`);
 
   // Els noms de les galetes (els posa el fons; només lletres, xifres i _.-)
-  noms = (Array.isArray(noms) ? noms : []).map((n) => String(n).replace(/[^\w.-]/g, "")).filter(Boolean)
+  const noms = (Array.isArray(o.noms) ? o.noms : []).map((n) => String(n).replace(/[^\w.-]/g, "")).filter(Boolean)
     .map((n) => (n.length > 12 ? n.slice(0, 11) + "…" : n));
 
   const contorn = (c, w) => "text-shadow:" + [[1, 0], [-1, 0], [0, 1], [0, -1], [.7, .7], [-.7, .7], [.7, -.7], [-.7, -.7]]
@@ -381,7 +588,7 @@ function MG_monstre(noms) {
         w, cos,
         braE: vb(q(".p-bra-e"), "80px 142px"), braD: vb(q(".p-bra-d"), "160px 142px"),
         peuE: vb(q(".p-peu-e"), "100px 226px"), peuD: vb(q(".p-peu-d"), "140px 226px"),
-        cua: vb(q(".p-cua"), "150px 206px"), orelles: vb(q(".p-orelles"), "120px 70px"),
+        cua: vb(q(".p-cua"), def.cua), orelles: vb(q(".p-orelles"), "120px 70px"),
         nines: q(".p-nines"), molles: q(".p-molles"), ulls: {}, boques: {}, maE: {}, maD: {},
       };
       for (const n of ["normal", "sorpresa", "cors", "contents", "parpella", "tancats"]) p.ulls[n] = q(".p-ulls-" + n);
@@ -389,7 +596,7 @@ function MG_monstre(noms) {
       for (const n of ["sencera", "mossegada", "mitja"]) { p.maE[n] = q(".p-bra-e .p-g-" + n); p.maD[n] = q(".p-bra-d .p-g-" + n); }
       return p;
     };
-    // El sacseig: només de la capa del mico
+    // El sacseig: només de la capa del personatge
     m.fi = () => {
       if (!m.sacsejades.length) return;
       const p = [[0, { x: 0, y: 0 }]];
@@ -433,9 +640,9 @@ function MG_monstre(noms) {
       m.pista(g, [[0, s], [tAgafa - 90, s, "cubic-bezier(.4,0,.8,.5)"], [tAgafa, { x: c.x - C / 2, y: c.y - C / 2 - S * 0.02, o: 1 }, "linear"], [tAgafa + 1, { o: 0 }]]);
     };
 
-    const p = m.personatge(MICO);
+    const p = m.personatge(def.svg);
 
-    // --- On és el mico
+    // --- On és el personatge
     const salt = (t0, t1, a, b, alt) => m.arc(t0, t1, a, b, alt);
     m.pista(p.w, [
       ...salt(0, 380, fora, mig, S * 0.4), [380, mig, "linear"],
