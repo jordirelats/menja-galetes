@@ -37,6 +37,10 @@ function MG_pagina(MG, cfg) {
   const usuari = (cfg.confianca || []).some((w) => MG.lloc(w) === llocSuperior);
   const real = desconegut || usuari || MG.esIdentitatReal(hostSuperior) || (cfg.realAuto || []).includes(llocSuperior);
   if (real && MG.esProtegitFrau(location.hostname) && location.hostname !== hostSuperior) return;
+  // Si aquest marc ja l'ha disfressat el codi del marc pare (que el veu abans que la pàgina hi pugui
+  // tocar res), no cal tornar-ho a fer, ni fer servir la llavor aquí: si la pàgina hagués tocat les
+  // funcions d'aquest marc abans que arribéssim, les podria espiar.
+  try { if (window.Document.prototype[Symbol.for(MG.MARCA)]) return; } catch (e) { return; }
 
   const f = cfg.falseja;
   const d = MG.disfressa(cfg, llocSuperior, { w: screen.width, h: screen.height });
@@ -146,8 +150,8 @@ function MG_pagina(MG, cfg) {
       MG.uaDades(win, d);
     }
 
-    /* ---- 3. Idioma i hora ---- */
-    if (f.idioma) {
+    /* ---- 3. Idioma i hora (si la IP és d'un país que la disfressa no coneix, es queden els de debò) ---- */
+    if (f.idioma && d.idiomes) {
       const llista = Object.freeze(d.idiomes.slice());
       getter(N, "language", () => d.idiomes[0]);
       getter(N, "languages", () => llista);
@@ -166,6 +170,8 @@ function MG_pagina(MG, cfg) {
       getter(S, "pixelDepth", () => 24);
       getter(N, "hardwareConcurrency", () => d.nuclis);
       if (d.memoria && "deviceMemory" in N) getter(N, "deviceMemory", () => d.memoria);
+      // La densitat de la pantalla, la de la disfressa (un Mac és sempre 2).
+      getter(win, "devicePixelRatio", () => d.pantalla.dpr);
       for (const nom of ["WebGLRenderingContext", "WebGL2RenderingContext"]) {
         const P = win[nom] && win[nom].prototype;
         if (!P) continue;
@@ -178,8 +184,8 @@ function MG_pagina(MG, cfg) {
       }
     }
 
-    /* ---- 5. Ubicació ---- */
-    if (f.ubicacio && win.Geolocation) {
+    /* ---- 5. Ubicació (si el país no és a la llista, no s'inventa: el navegador et pregunta) ---- */
+    if (f.ubicacio && win.Geolocation && d.lat !== null) {
       const G = win.Geolocation.prototype;
       const posicio = () => ({
         coords: { latitude: d.lat, longitude: d.lon, accuracy: 20 + (d.soroll % 60), altitude: null,
@@ -198,9 +204,10 @@ function MG_pagina(MG, cfg) {
         const C2 = win.CanvasRenderingContext2D.prototype, HC = win.HTMLCanvasElement.prototype;
         const gid = C2.getImageData, pid = C2.putImageData, dib = C2.drawImage, ctxDe = HC.getContext;
         const toDataURL = HC.toDataURL, toBlob = HC.toBlob, crea = win.Document.prototype.createElement;
+        // Les funcions guardades (MG.M, MG.car): la pàgina podria haver canviat Math o charCodeAt.
         C2.getImageData = function () {
           const r = gid.apply(this, arguments);
-          try { MG.sorolla(r.data, r.data.length, d.soroll + "|img"); } catch (e) { /* res */ }
+          try { MG.sorolla(r.data, r.data.length, d.soroll + "|img", MG.M, MG.car); } catch (e) { /* res */ }
           return r;
         };
         // Una còpia amb soroll, feta amb les funcions originals.
@@ -212,7 +219,7 @@ function MG_pagina(MG, cfg) {
           const ctx = ctxDe.call(c2, "2d");
           dib.call(ctx, canvas, 0, 0);
           const img = gid.call(ctx, 0, 0, w, h);
-          MG.sorolla(img.data, img.data.length, d.soroll + "|img");
+          MG.sorolla(img.data, img.data.length, d.soroll + "|img", MG.M, MG.car);
           pid.call(ctx, img, 0, 0);
           return c2;
         };
@@ -225,6 +232,50 @@ function MG_pagina(MG, cfg) {
           return toBlob.apply(this, arguments);
         };
       } catch (e) { /* res */ }
+      // Els canvas fora de pantalla (OffscreenCanvas) del mateix fil de la pàgina.
+      try {
+        const OC2 = win.OffscreenCanvasRenderingContext2D && win.OffscreenCanvasRenderingContext2D.prototype;
+        if (OC2) {
+          const ogid = OC2.getImageData, opid = OC2.putImageData, odib = OC2.drawImage;
+          const OCc = win.OffscreenCanvas, OCP = OCc.prototype, ctb = OCP.convertToBlob, octx = OCP.getContext;
+          OC2.getImageData = function () {
+            const r = ogid.apply(this, arguments);
+            try { MG.sorolla(r.data, r.data.length, d.soroll + "|img", MG.M, MG.car); } catch (e) { /* res */ }
+            return r;
+          };
+          if (typeof ctb === "function") {
+            OCP.convertToBlob = function () {
+              try {
+                const w = this.width, h = this.height;
+                if (w && h && w * h <= 4e6) {
+                  const c = new OCc(w, h);
+                  const x = octx.call(c, "2d");
+                  odib.call(x, this, 0, 0);
+                  const im = ogid.call(x, 0, 0, w, h);
+                  MG.sorolla(im.data, im.data.length, d.soroll + "|img", MG.M, MG.car);
+                  opid.call(x, im, 0, 0);
+                  return ctb.apply(c, arguments);
+                }
+              } catch (e) { /* res */ }
+              return ctb.apply(this, arguments);
+            };
+          }
+        }
+      } catch (e) { /* res */ }
+      // Els píxels que llegeix WebGL (readPixels): el mateix soroll.
+      for (const nom of ["WebGLRenderingContext", "WebGL2RenderingContext"]) {
+        const P = win[nom] && win[nom].prototype;
+        if (!P || !P.readPixels) continue;
+        const rp = P.readPixels;
+        P.readPixels = function () {
+          const res = rp.apply(this, arguments);
+          try {
+            const px = arguments[6];
+            if (px && px.BYTES_PER_ELEMENT === 1 && px.length) MG.sorolla(px, px.length, d.soroll + "|gl", MG.M, MG.car);
+          } catch (e) { /* res */ }
+          return res;
+        };
+      }
       try {
         const AB = win.AudioBuffer.prototype, gcd = AB.getChannelData;
         AB.getChannelData = function (canal) {
@@ -232,8 +283,8 @@ function MG_pagina(MG, cfg) {
           try {
             const r = MG.rng(`${d.soroll}|audio|${dades.length}`);
             for (let i = 0; i < 12; i++) {
-              const k = Math.floor(r() * dades.length);
-              dades[k] = Math.round(dades[k] * 1e6) / 1e6 + (r() - 0.5) * 4e-7;
+              const k = MG.M.floor(r() * dades.length);
+              dades[k] = MG.M.round(dades[k] * 1e6) / 1e6 + (r() - 0.5) * 4e-7;
             }
           } catch (e) { /* res */ }
           return dades;
@@ -243,15 +294,44 @@ function MG_pagina(MG, cfg) {
 
     /* ---- 7. La IP que demanen els scripts (WebRTC) ---- */
     if (f.ipScripts && d.ip) {
-      const privada = (ip) => /^(10\.|127\.|0\.|169\.254\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(ip);
-      const canviaIP = (text) => String(text).replace(/\b(\d{1,3}(?:\.\d{1,3}){3})\b/g, (ip) => (privada(ip) ? ip : d.ip));
-      for (const [classe, props] of [["RTCIceCandidate", ["candidate", "address"]], ["RTCSessionDescription", ["sdp"]]]) {
+      const canviaIP = MG.canviaIP(d.ip);
+      for (const [classe, props] of [["RTCIceCandidate", ["candidate", "address", "relatedAddress"]], ["RTCSessionDescription", ["sdp"]]]) {
         const P = win[classe] && win[classe].prototype;
         if (!P) continue;
         for (const prop of props) {
           const ds = desc(P, prop);
           if (ds && ds.get) getter(P, prop, function () { return canviaIP(ds.get.call(this)); });
         }
+        // toJSON() també porta les adreces.
+        const tj = P.toJSON;
+        if (typeof tj === "function") {
+          P.toJSON = function () {
+            const res = tj.call(this);
+            try { for (const prop of props) if (typeof res[prop] === "string") res[prop] = canviaIP(res[prop]); } catch (e) { /* res */ }
+            return res;
+          };
+        }
+      }
+      // I getStats() (els candidats locals i remots porten «address»).
+      const PC = win.RTCPeerConnection && win.RTCPeerConnection.prototype;
+      if (PC && typeof PC.getStats === "function") {
+        const gs = PC.getStats;
+        PC.getStats = function () {
+          const pr = gs.apply(this, arguments);
+          try {
+            return pr.then((rep) => {
+              try {
+                const m = new win.Map();
+                rep.forEach((v, k) => {
+                  const c = Object.assign({}, v);
+                  for (const camp of ["address", "ip", "candidate", "relatedAddress", "url"]) if (typeof c[camp] === "string") c[camp] = canviaIP(c[camp]);
+                  m.set(k, c);
+                });
+                return m;
+              } catch (e) { return rep; }
+            });
+          } catch (e) { return pr; }
+        };
       }
     }
 

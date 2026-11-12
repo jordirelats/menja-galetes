@@ -9,6 +9,13 @@
 
 const MG = {};
 
+// Les funcions del navegador que fa servir el codi de pàgina, guardades ara. Al Chromium aquest codi
+// és dins de la mateixa pàgina, i el web les podria canviar després (Math.min = () => 0 deixaria
+// l'empremta sense soroll; un String.prototype.charCodeAt seu veuria les llavors). Es criden
+// sempre d'aquesta manera, mai a través de la pàgina.
+MG.M = { imul: Math.imul, floor: Math.floor, round: Math.round };
+MG.car = Function.prototype.call.bind(String.prototype.charCodeAt);
+
 MG.PER_DEFECTE = {
   actiu: true,
   avisos: "acceptar",        // "acceptar" | "rebutjar" | "res"
@@ -147,10 +154,12 @@ MG.esOrganitzacioReal = (org) => MG.ORGANITZACIO_REAL.test(String(org || ""));
 MG.ANTIFRAU = [
   "online-metrix.net", "threatmetrix.com", "iesnare.com", "iovation.com", "biocatch.com", "nudatasecurity.com",
   "kount.net", "kaxsdc.com", "forter.com", "riskified.com", "signifyd.com", "seon.io", "sardine.ai",
-  "accertify.com", "feedzai.com", "sift.com", "siftscience.com", "fpjs.io", "fpcdn.io", "fpapi.io",
+  "accertify.com", "feedzai.com", "sift.com", "siftscience.com",
   "incognia.com", "socure.com", "jumio.com", "onfido.com", "veriff.com", "veriff.me", "sumsub.com",
   "idnow.de", "idnow.io", "withpersona.com", "arkoselabs.com", "funcaptcha.com", "trulioo.com", "mitek.com",
 ];
+// (FingerprintJS no hi és: és un servei per reconèixer els visitants per l'empremta, i amb ell la
+// disfressa es trauria sola als webs que més la necessiten.)
 MG.esAntifrau = (host) => { const l = MG.lloc(host); return MG.ANTIFRAU.some((s) => l === s || l.endsWith("." + s)); };
 
 // Identificadors que viatgen dins dels enllaços (galetes que no són galetes): els clics
@@ -219,6 +228,70 @@ MG.MARCA = "menja-galetes";
 MG.esConfiat = function (lloc, llista) {
   if (!lloc) return false;
   return MG.esSempreReal(lloc) || (llista || []).some((w) => MG.lloc(w) === lloc);
+};
+
+/* ---- Els avisos de galetes (el Firefox i el Chromium fan servir el mateix) ---- */
+
+// [nom, botó d'acceptar, botó de rebutjar]
+MG.CMP = [
+  ["OneTrust", "#onetrust-accept-btn-handler", "#onetrust-reject-all-handler"],
+  ["Cookiebot", "#CybotCookiebotDialogBodyLevelButtonLevelOptinAllowAll, #CybotCookiebotDialogBodyButtonAccept",
+    "#CybotCookiebotDialogBodyButtonDecline"],
+  ["Didomi", "#didomi-notice-agree-button", "#didomi-notice-disagree-button, .didomi-continue-without-agreeing"],
+  ["CookieYes", ".cky-btn-accept", ".cky-btn-reject"],
+  ["Complianz", ".cmplz-btn.cmplz-accept", ".cmplz-btn.cmplz-deny"],
+  ["Borlabs", "a[data-cookie-accept-all], ._brlbs-btn-accept-all", "a[data-cookie-refuse], ._brlbs-refuse-btn a"],
+  ["TrustArc", "#truste-consent-button", "#truste-consent-required"],
+  ["Osano", ".osano-cm-accept-all", ".osano-cm-denyAll, .osano-cm-deny"],
+  ["Termly", "[data-tid='banner-accept']", "[data-tid='banner-decline']"],
+  ["Iubenda", ".iubenda-cs-accept-btn", ".iubenda-cs-reject-btn"],
+  ["Klaro", ".cm-btn-accept-all, .cm-btn-success", ".cm-btn-decline"],
+  ["Cookie Notice", "#cn-accept-cookie", "#cn-refuse-cookie"],
+  ["Moove", ".moove-gdpr-infobar-allow-all", ".moove-gdpr-infobar-reject-btn"],
+  ["Sourcepoint", "button.sp_choice_type_11", "button.sp_choice_type_13"],
+  ["Quantcast", ".qc-cmp2-summary-buttons button[mode='primary']", ""],
+];
+MG.ACCEPTAR = /^(acceptar|accepta|acceptar-ho tot|acceptar tot|acceptar totes|accepto|aceptar|aceptar todo|aceptar todas|aceptar y cerrar|acepto|accept|accept all|accept all cookies|allow all|agree|i agree|tout accepter|accepter|alle akzeptieren|akzeptieren|accetta|accetta tutti|aceitar|aceitar todos|ok|d'acord|de acuerdo|entesos|entendido)$/i;
+MG.REBUTJAR = /^(rebutjar|rebutja|rebutjar-ho tot|rebutjar tot|rebutjar totes|rechazar|rechazar todo|rechazar todas|no acepto|denegar|reject|reject all|decline|decline all|refuse|tout refuser|refuser|alle ablehnen|ablehnen|rifiuta|rifiuta tutti|rejeitar|continuar sin aceptar|continuar sense acceptar|continue without accepting)$/i;
+// Paraules tan generals («OK», «D'acord», «I agree») que només valen si al voltant es parla de galetes.
+MG.GENERIQUES = /^(ok|d'acord|de acuerdo|entesos|entendido|agree|i agree)$/i;
+
+/*
+ * El botó de l'avís de galetes que toca clicar ({el, nom}), o null.
+ *   accepta: acceptar (si no, rebutjar)
+ *   real: un banc, un govern, una xarxa…: només els avisos coneguts, mai un botó qualsevol
+ *   visible(el), ombra(host): les dona qui crida (cada navegador veu el DOM a la seva manera)
+ * Un botó qualsevol només si al voltant es parla de galetes o de consentiment, i mai si és d'un
+ * formulari on s'escriu alguna cosa: podria ser acceptar unes condicions o enviar una compra.
+ */
+MG.botoAvis = function (arrel, accepta, real, visible, ombra) {
+  for (const [nom, a, r] of MG.CMP) {
+    const sel = accepta ? a : r;
+    if (!sel) continue;
+    const el = arrel.querySelector(sel);
+    if (visible(el)) return { el, nom };
+  }
+  // Usercentrics viu dins d'una «shadow root».
+  for (const host of arrel.querySelectorAll("#usercentrics-root, #usercentrics-cmp-ui, aside#usercentrics-cmp-ui")) {
+    const sr = ombra(host);
+    if (!sr) continue;
+    const el = sr.querySelector(accepta ? "[data-testid='uc-accept-all-button']" : "[data-testid='uc-deny-all-button']");
+    if (visible(el)) return { el, nom: "Usercentrics" };
+  }
+  if (real) return null;
+  const re = accepta ? MG.ACCEPTAR : MG.REBUTJAR;
+  for (const el of arrel.querySelectorAll("button, a[role='button'], [role='button'], input[type='button'], input[type='submit']")) {
+    const text = (el.innerText || el.value || el.getAttribute("aria-label") || "").trim().replace(/\s+/g, " ");
+    if (!text || text.length > 40 || !re.test(text) || !visible(el)) continue;
+    const form = el.form || (el.closest && el.closest("form"));
+    if (form && form.querySelector("input:not([type='hidden']):not([type='submit']):not([type='button']), textarea, select")) continue;
+    const paraules = MG.GENERIQUES.test(text) ? /cookie|galet/i : /cookie|galet|consent|gdpr|rgpd/i;
+    let pare = el;
+    for (let i = 0; i < 8 && pare; i++, pare = pare.parentElement) {
+      if (paraules.test((pare.id || "") + " " + (typeof pare.className === "string" ? pare.className : "") + " " + (pare.innerText || "").slice(0, 600))) return { el, nom: "genèric" };
+    }
+  }
+  return null;
 };
 
 /* ---- Atzar ---------------------------------------------------------------- */
@@ -370,12 +443,14 @@ MG.setmana = function (ara = new Date()) {
   d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 };
+// És la setmana just d'abans de la d'ara? (Si no hi has anat en tres setmanes, la d'abans és buida.)
+MG.esSetmanaPassada = (setmana, ara = new Date()) => setmana === MG.setmana(new Date(ara.getFullYear(), ara.getMonth(), ara.getDate() - 7));
 MG.resumBuit = (setmana) => ({ setmana, galetes: 0, empreses: {}, gravadors: 0, espies: 0, rebots: 0 });
 // Suma una cosa menjada al resum. Si ha canviat la setmana, la d'abans passa a «anterior».
 MG.suma = function (estat, clau, empresa, ara = new Date()) {
   const setmana = MG.setmana(ara);
   if (!estat.resum || estat.resum.setmana !== setmana) {
-    if (estat.resum && estat.resum.setmana) estat.anterior = estat.resum;
+    if (estat.resum && estat.resum.setmana) estat.anterior = MG.esSetmanaPassada(estat.resum.setmana, ara) ? estat.resum : null;
     estat.resum = MG.resumBuit(setmana);
   }
   estat.resum[clau] = (estat.resum[clau] || 0) + 1;
@@ -404,29 +479,35 @@ MG.textResum = function (r) {
   return (emp ? `Galetes: ${emp}.` : "") + (cua ? ` També m'he menjat ${cua}.` : "");
 };
 
+// El dia d'avui (AAAA-M-D, hora local): la clau de la disfressa «una al dia per a tots».
+MG.avui = function (ara = new Date()) { return `${ara.getFullYear()}-${ara.getMonth() + 1}-${ara.getDate()}`; };
+
 // Una galeta vella: d'un web on no vas fa més de «dies» dies.
 MG.esVell = (darrera, dies, ara = Date.now()) => dies > 0 && ara - darrera > dies * 864e5;
 
 // Hash de text (cyrb53): el mateix text dona sempre el mateix número.
 MG.hash = function (s) {
+  const imul = MG.M.imul, car = MG.car;
+  s = "" + s;
   let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
   for (let i = 0; i < s.length; i++) {
-    const c = s.charCodeAt(i);
-    h1 = Math.imul(h1 ^ c, 2654435761);
-    h2 = Math.imul(h2 ^ c, 1597334677);
+    const c = car(s, i);
+    h1 = imul(h1 ^ c, 2654435761);
+    h2 = imul(h2 ^ c, 1597334677);
   }
-  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
-  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  h1 = imul(h1 ^ (h1 >>> 16), 2246822507) ^ imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = imul(h2 ^ (h2 >>> 16), 2246822507) ^ imul(h1 ^ (h1 >>> 13), 3266489909);
   return 4294967296 * (2097151 & h2) + (h1 >>> 0);
 };
 
 // Generador amb llavor (mulberry32): la mateixa llavor, la mateixa seqüència.
 MG.rng = function (llavor) {
-  let a = MG.hash(String(llavor)) >>> 0;
+  const imul = MG.M.imul;
+  let a = MG.hash("" + llavor) >>> 0;
   return function () {
     a = (a + 0x6D2B79F5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    let t = imul(a ^ (a >>> 15), 1 | a);
+    t = (t + imul(t ^ (t >>> 7), 61 | t)) ^ t;
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 };
@@ -625,6 +706,20 @@ MG.PAISOS = {
   AU: { nom: "Austràlia", de: "d'Austràlia", idiomes: ["en-AU", "en"],
     accept: "en-AU,en;q=0.5", zona: "Australia/Sydney",
     ciutats: [["Sydney", -33.87, 151.21], ["Melbourne", -37.81, 144.96], ["Canberra", -35.28, 149.13]] },
+  AD: { nom: "Andorra", de: "d'Andorra", idiomes: ["ca-AD", "ca"],
+    accept: "ca-AD,ca;q=0.8,es;q=0.6,fr;q=0.4,en;q=0.2", zona: "Europe/Andorra",
+    ciutats: [["Andorra la Vella", 42.51, 1.52], ["Escaldes-Engordany", 42.51, 1.54], ["Encamp", 42.53, 1.58],
+      ["Sant Julià de Lòria", 42.46, 1.49], ["la Massana", 42.55, 1.52]] },
+  MX: { nom: "Mèxic", de: "de Mèxic", idiomes: ["es-MX", "es"],
+    accept: "es-MX,es;q=0.8,en-US;q=0.5,en;q=0.3", zona: "America/Mexico_City",
+    ciutats: [["Ciutat de Mèxic", 19.43, -99.13], ["Guadalajara", 20.67, -103.35], ["Monterrey", 25.69, -100.32],
+      ["Puebla", 19.04, -98.21], ["Querétaro", 20.59, -100.39], ["León", 21.12, -101.68]] },
+  BE: { nom: "Bèlgica", de: "de Bèlgica", idiomes: ["fr-BE", "fr", "nl"],
+    accept: "fr-BE,fr;q=0.8,nl;q=0.6,en;q=0.4", zona: "Europe/Brussels",
+    ciutats: [["Brussel·les", 50.85, 4.35], ["Anvers", 51.22, 4.4], ["Gant", 51.05, 3.72], ["Lieja", 50.63, 5.57]] },
+  CH: { nom: "Suïssa", de: "de Suïssa", idiomes: ["de-CH", "de", "fr"],
+    accept: "de-CH,de;q=0.8,fr;q=0.6,en;q=0.4", zona: "Europe/Zurich",
+    ciutats: [["Zuric", 47.37, 8.54], ["Ginebra", 46.2, 6.14], ["Basilea", 47.56, 7.59], ["Berna", 46.95, 7.45]] },
   ZA: { nom: "Sud-àfrica", de: "de Sud-àfrica", idiomes: ["en-ZA", "en"],
     accept: "en-ZA,en;q=0.5", zona: "Africa/Johannesburg",
     ciutats: [["Johannesburg", -26.2, 28.05], ["Ciutat del Cap", -33.92, 18.42], ["Durban", -29.86, 31.02], ["Pretòria", -25.75, 28.19]] },
@@ -695,19 +790,20 @@ MG.ipDe = function (blocs, r) {
  * que la finestra (es notaria).
  */
 MG.disfressa = function (cfg, lloc, real) {
-  const dia = new Date();
-  const avui = `${dia.getFullYear()}-${dia.getMonth() + 1}-${dia.getDate()}`;
   const clau = cfg.disfressa === "dia"
-    ? `dia|${avui}`
+    ? `dia|${MG.avui()}`
     : `web|${lloc}|${(cfg.epochLloc || {})[lloc] || 0}`;
   const r = MG.rng(`${cfg.secret}|${cfg.epoch || 0}|${clau}`);
-  const tria = (a) => a[Math.floor(r() * a.length)];
+  const floor = MG.M.floor, round = MG.M.round;
+  const tria = (a) => a[floor(r() * a.length)];
 
   const codis = Object.keys(MG.PAISOS);
   const atzarPais = tria(codis);
-  const codiPais = cfg.pais === "qualsevol" ? atzarPais : (MG.PAISOS[cfg.paisIP] ? cfg.paisIP : "ES");
-  const p = MG.PAISOS[codiPais];
-  const ciutat = tria(p.ciutats);
+  // Si la IP és d'un país que no és a la llista, l'idioma, l'hora i la ubicació es queden els de
+  // debò: una disfressa d'un altre país no lligaria amb la IP (i faria més olor de disfressa).
+  const codiPais = cfg.pais === "qualsevol" ? atzarPais : (MG.PAISOS[cfg.paisIP] ? cfg.paisIP : null);
+  const p = codiPais ? MG.PAISOS[codiPais] : null;
+  const ciutat = p ? tria(p.ciutats) : null;
   const so = r() < 0.7 ? "Windows" : "Mac";
   const S = MG.SISTEMES[so];
   const v = cfg.versio || "158";
@@ -718,14 +814,15 @@ MG.disfressa = function (cfg, lloc, real) {
     const grans = pantalles.filter(([w, h]) => w >= real.w && h >= real.h);
     pantalles = grans.length ? grans : [[real.w, real.h]];
   }
-  const [w, h] = pantalles[Math.floor(iPantalla * pantalles.length)];
+  const [w, h] = pantalles[floor(iPantalla * pantalles.length)];
   const dpr = tria(S.dpr);
   const nuclis = tria([4, 8, 8, 12, 16]);
-  const iGpu = Math.floor(r() * S.gpu.length);
+  const iGpu = floor(r() * S.gpu.length);
   const ip = MG.ipDe([MG.BLOC_IP_FALSA], r);
-  const lat = Math.round((ciutat[1] + (r() - 0.5) * 0.06) * 1e5) / 1e5;
-  const lon = Math.round((ciutat[2] + (r() - 0.5) * 0.06) * 1e5) / 1e5;
-  const soroll = Math.floor(r() * 2147483647);
+  const dLat = r(), dLon = r();
+  const lat = ciutat ? round((ciutat[1] + (dLat - 0.5) * 0.06) * 1e5) / 1e5 : null;
+  const lon = ciutat ? round((ciutat[2] + (dLon - 0.5) * 0.06) * 1e5) / 1e5 : null;
+  const soroll = floor(r() * 2147483647);
   // Al Vivaldi, el Chrome i el Brave, la disfressa és un Chrome; al Firefox, un Firefox.
   const chrome = cfg.navegador === "chrome";
   const gpu = (chrome ? S.gpuChrome : S.gpu)[iGpu];
@@ -737,16 +834,29 @@ MG.disfressa = function (cfg, lloc, real) {
   const ua = chrome ? S.uaChrome(v) : S.ua(v);
 
   return {
-    codiPais, pais: p.nom, dePais: p.de, ciutat: ciutat[0], so, soNom: S.nom,
+    codiPais: codiPais || cfg.paisIP || "", pais: p ? p.nom : (cfg.paisIP || ""), dePais: p ? p.de : "",
+    ciutat: ciutat ? ciutat[0] : null, so, soNom: S.nom,
     navegador: chrome ? "chrome" : "firefox", navegadorNom: chrome ? "Chrome" : "Firefox",
     ua, platform: S.platform, oscpu: chrome ? null : S.oscpu, appVersion: chrome ? ua.slice(8) : S.appVersion,
     memoria: chrome ? memoria : null, uaDades: chrome ? uaDades : null,
-    idiomes: p.idiomes.slice(), acceptLanguage: p.accept, zona: p.zona,
+    idiomes: p ? p.idiomes.slice() : null, acceptLanguage: p ? p.accept : null, zona: p ? p.zona : null,
     pantalla: { w, h, aw: w, ah: h - S.barra, dpr },
     nuclis, gpu: { nom: gpu[0], vendor: gpu[1], renderer: gpu[2] },
     ip, lat, lon, soroll,
-    nom: `Un ${so} de ${ciutat[0]}`,
+    nom: ciutat ? `Un ${so} de ${ciutat[0]}` : `Un ${so}`,
   };
+};
+
+// Canvia les IP públiques d'un text de WebRTC (candidats, SDP, estadístiques) per la falsa. Les
+// privades i les locals es deixen (no diuen qui ets). També les IPv6, que delatarien la IP de debò.
+MG.canviaIP = function (falsa) {
+  const privadaV4 = (ip) => /^(10\.|127\.|0\.|169\.254\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.)/.test(ip);
+  const privadaV6 = (ip) => /^(fe[89ab][0-9a-f]?:|f[cd][0-9a-f]{0,2}:|::1?$|::$)/i.test(ip);
+  return (text) => String(text)
+    .replace(/IN IP6 ([0-9a-f:]+)/gi, (tot, ip) => (privadaV6(ip) ? tot : `IN IP4 ${falsa}`))
+    .replace(/\b(\d{1,3}(?:\.\d{1,3}){3})\b/g, (ip) => (privadaV4(ip) ? ip : falsa))
+    .replace(/(^|[\s,])([0-9a-f]{0,4}(?::[0-9a-f]{0,4}){2,7})(?=$|[\s,])/gi,
+      (tot, abans, ip) => (/[0-9a-f]/i.test(ip) && !privadaV6(ip) ? abans + falsa : tot));
 };
 
 /* ---- Peces que van també dins dels treballadors (workers) ----------------------------
@@ -756,21 +866,25 @@ MG.disfressa = function (cfg, lloc, real) {
 
 // Soroll a les dades d'una imatge. Sempre el mateix per a la mateixa llavor, i es pot
 // aplicar dues vegades sense que canviï res (posa un bit, no el gira).
-MG.sorolla = function (dades, llargada, llavor) {
+// M i car: Math.imul/floor i charCodeAt guardats abans que la pàgina els pugués canviar (MG.M, MG.car).
+MG.sorolla = function (dades, llargada, llavor, M, car) {
+  const imul = (M || Math).imul, floor = (M || Math).floor;
+  car = car || ((x, i) => x.charCodeAt(i));
   let h = 2166136261;
-  const s = String(llavor) + "|" + llargada;
-  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+  const s = "" + llavor + "|" + llargada;
+  for (let i = 0; i < s.length; i++) { h ^= car(s, i); h = imul(h, 16777619); }
   let a = h >>> 0;
   const r = () => {
     a = (a + 0x6D2B79F5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    let t = imul(a ^ (a >>> 15), 1 | a);
+    t = (t + imul(t ^ (t >>> 7), 61 | t)) ^ t;
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
   if (!llargada) return;
-  const canvis = Math.min(24, Math.max(6, llargada >> 12));
+  const n = llargada >> 12;
+  const canvis = n < 6 ? 6 : n > 24 ? 24 : n;
   for (let i = 0; i < canvis; i++) {
-    const k = Math.floor(r() * (llargada / 4)) * 4 + Math.floor(r() * 3);
+    const k = floor(r() * (llargada / 4)) * 4 + floor(r() * 3);
     const bit = r() < 0.5 ? 0 : 1;
     dades[k] = (dades[k] & 0xFE) | bit;
   }
@@ -787,29 +901,38 @@ MG.sorolla = function (dades, llargada, llavor) {
  */
 MG.zonaIdioma = function (G, d, f, eina) {
   "use strict";
-  if (!f.idioma) return;
+  if (!f.idioma || !d.zona) return;
   const fn = eina.fn, ganxo = eina.ganxo, DC = eina.Date, DTFo = eina.DTF, zonaReal = eina.zonaReal;
   const OD = G.Date, ODP = OD.prototype;
   const canviaZona = d.zona !== zonaReal;
 
   // Minuts de diferència amb UTC (el mateix signe que getTimezoneOffset) en un instant.
-  const fmts = {};
+  // Es fa servir també amb la zona de debò (per llegir textos d'hora local). Al Chromium aquest codi
+  // és dins de la pàgina: les funcions es guarden ara i els objectes no tenen prototip, perquè el web
+  // no pugui espiar la zona de debò canviant-les (formatToParts, setUTCHours, Math.round, Object.prototype…).
+  const crida = Function.prototype.call.bind(Function.prototype.call);
+  const formatToParts = DTFo.prototype.formatToParts, charCodeAt = String.prototype.charCodeAt, round = Math.round;
+  const getTimeD = DC.prototype.getTime, setUTCFullYearD = DC.prototype.setUTCFullYear, setUTCHoursD = DC.prototype.setUTCHours;
+  const fmts = { __proto__: null };
   const fmt = (z) => fmts[z] || (fmts[z] = new DTFo("en-US", {
-    timeZone: z, hourCycle: "h23", era: "short", year: "numeric", month: "numeric",
+    __proto__: null, timeZone: z, hourCycle: "h23", era: "short", year: "numeric", month: "numeric",
     day: "numeric", hour: "numeric", minute: "numeric", second: "numeric",
   }));
   const desfase = (t, z) => {
-    if (!(t === t) || !isFinite(t)) return NaN;
-    const v = {};
-    for (const p of fmt(z).formatToParts(t)) v[p.type] = p.value;
+    if (!(t === t) || t === Infinity || t === -Infinity) return NaN;
+    const parts = crida(formatToParts, fmt(z), t);
+    const v = { __proto__: null };
+    for (let i = 0; i < parts.length; i++) v[parts[i].type] = parts[i].value;
     let y = +v.year;
-    if (/^B/.test(v.era || "")) y = 1 - y;
+    if (v.era && crida(charCodeAt, v.era, 0) === 66) y = 1 - y;   // «BC»
     const x = new DC(0);
-    x.setUTCFullYear(y, +v.month - 1, +v.day);
-    x.setUTCHours(+v.hour % 24, +v.minute, +v.second, 0);
+    crida(setUTCFullYearD, x, y, +v.month - 1, +v.day);
+    crida(setUTCHoursD, x, +v.hour % 24, +v.minute, +v.second, 0);
     const base = t - (((t % 1000) + 1000) % 1000);
-    return Math.round((base - x.getTime()) / 60000);
+    return round((base - crida(getTimeD, x)) / 60000);
   };
+  fmt(zonaReal);   // ara, abans que el web pugui tocar res
+  fmt(d.zona);
   const aUTC = (L) => { let t = L + desfase(L, d.zona) * 60000; t = L + desfase(t, d.zona) * 60000; return t; };
   const local = (t) => new DC(t - desfase(t, d.zona) * 60000);
 
@@ -959,7 +1082,7 @@ MG.zonaIdioma = function (G, d, f, eina) {
 };
 
 // La resta de la disfressa dins d'un treballador: navigator, WebGL i OffscreenCanvas.
-MG.restaTreballador = function (G, d, f, sorolla) {
+MG.restaTreballador = function (G, d, f, sorolla, M, car) {
   "use strict";
   const def = (o, p, v) => {
     try { Object.defineProperty(o, p, { get: function () { return v; }, configurable: true, enumerable: true }); } catch (e) { /* res */ }
@@ -967,7 +1090,7 @@ MG.restaTreballador = function (G, d, f, sorolla) {
   const N = G.WorkerNavigator && G.WorkerNavigator.prototype;
   if (N) {
     if (f.navegador) { def(N, "userAgent", d.ua); def(N, "platform", d.platform); def(N, "appVersion", d.appVersion); }
-    if (f.idioma) { def(N, "language", d.idiomes[0]); def(N, "languages", Object.freeze(d.idiomes.slice())); }
+    if (f.idioma && d.idiomes) { def(N, "language", d.idiomes[0]); def(N, "languages", Object.freeze(d.idiomes.slice())); }
     if (f.pantalla) def(N, "hardwareConcurrency", d.nuclis);
     if (f.pantalla && d.memoria && "deviceMemory" in N) def(N, "deviceMemory", d.memoria);
   }
@@ -979,7 +1102,21 @@ MG.restaTreballador = function (G, d, f, sorolla) {
       P.getParameter = function (p) {
         if (p === 0x9245) return d.gpu.vendor;
         if (p === 0x9246) return d.gpu.renderer;
+        // Al Firefox, RENDERER també diu la targeta de debò (VENDOR només diu «Mozilla»).
+        if (p === 0x1F01 && d.navegador === "firefox") return d.gpu.renderer;
         return o.call(this, p);
+      };
+    }
+  }
+  if (f.empremta) {
+    for (const nom of ["WebGLRenderingContext", "WebGL2RenderingContext"]) {
+      const P = G[nom] && G[nom].prototype;
+      if (!P || !P.readPixels) continue;
+      const rp = P.readPixels;
+      P.readPixels = function () {
+        const r = rp.apply(this, arguments);
+        try { const px = arguments[6]; if (px && px.BYTES_PER_ELEMENT === 1 && px.length) sorolla(px, px.length, d.soroll + "|gl", M, car); } catch (e) { /* res */ }
+        return r;
       };
     }
   }
@@ -988,7 +1125,7 @@ MG.restaTreballador = function (G, d, f, sorolla) {
     const gid = C2.getImageData;
     C2.getImageData = function () {
       const r = gid.apply(this, arguments);
-      try { sorolla(r.data, r.data.length, d.soroll + "|img"); } catch (e) { /* res */ }
+      try { sorolla(r.data, r.data.length, d.soroll + "|img", M, car); } catch (e) { /* res */ }
       return r;
     };
     const OC = G.OffscreenCanvas.prototype;
@@ -1000,7 +1137,7 @@ MG.restaTreballador = function (G, d, f, sorolla) {
           const x = c.getContext("2d");
           x.drawImage(this, 0, 0);
           const im = gid.call(x, 0, 0, this.width, this.height);
-          sorolla(im.data, im.data.length, d.soroll + "|img");
+          sorolla(im.data, im.data.length, d.soroll + "|img", M, car);
           x.putImageData(im, 0, 0);
           return ctb.apply(c, arguments);
         } catch (e) { return ctb.apply(this, arguments); }
@@ -1046,9 +1183,10 @@ MG.codiTreballador = function (d, f) {
   const ascii = (s) => s.replace(/[\u007f-\uffff]/g, (c) => "\\u" + c.charCodeAt(0).toString(16).padStart(4, "0"));
   return ascii("(function(){try{var d=" + json(d) + ",f=" + json(f) + ",id=function(x){return x};" +
     "var zonaReal=Intl.DateTimeFormat().resolvedOptions().timeZone;" +
+    "var M={imul:Math.imul,floor:Math.floor},car=Function.prototype.call.bind(String.prototype.charCodeAt);" +
     "var sorolla=" + MG.sorolla.toString() + ";" +
     "(" + MG.zonaIdioma.toString() + ")(self,d,f,{fn:id,ganxo:id,Date:Date,DTF:Intl.DateTimeFormat,zonaReal:zonaReal});" +
-    "(" + MG.restaTreballador.toString() + ")(self,d,f,sorolla);" +
+    "(" + MG.restaTreballador.toString() + ")(self,d,f,sorolla,M,car);" +
     "if(f.navegador)(" + MG.uaDades.toString() + ")(self,d);" +
     "}catch(e){}})();\n");
 };

@@ -7,7 +7,7 @@
   "browser_specific_settings": {
     "gecko": {
       "id": "menja-galetes@jordirelats",
-      "strict_min_version": "128.0",
+      "strict_min_version": "140.0",
       "data_collection_permissions": { "required": ["none"] }
     }
   },
@@ -36,7 +36,8 @@
     "open_in_tab": true
   },
   "icons": {
-    "48": "icones/galeta.svg",
-    "96": "icones/galeta.svg"
+    "48": "icones/galeta-48.png",
+    "96": "icones/galeta-96.png",
+    "128": "icones/galeta-128.png"
   }
 }

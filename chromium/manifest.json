@@ -45,7 +45,9 @@
     "default_title": "Menja galetes",
     "default_popup": "finestreta/finestreta.html",
     "default_icon": {
-      "96": "icones/galeta-96.png"
+      "48": "icones/galeta-48.png",
+      "96": "icones/galeta-96.png",
+      "128": "icones/galeta-128.png"
     }
   },
   "options_ui": {
@@ -53,7 +55,9 @@
     "open_in_tab": true
   },
   "icons": {
-    "96": "icones/galeta-96.png"
+    "48": "icones/galeta-48.png",
+    "96": "icones/galeta-96.png",
+    "128": "icones/galeta-128.png"
   },
   "web_accessible_resources": [
     {

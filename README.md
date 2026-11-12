@@ -14,17 +14,17 @@ Una extensió per al Firefox, el Vivaldi, el Chrome i el Brave que es menja la p
 - Els ETag: als tercers no se'ls torna, perquè no puguin fer servir la memòria cau com una galeta.
 - L'empremta del navegador, amb la disfressa (més avall).
 
-**Et disfressa.** Cada web veu un navegador diferent i coherent: un altre sistema (Windows o Mac), una altra ciutat del mateix país que la teva IP, un altre idioma i una altra zona horària (`Date`, `Intl`, `Temporal`, `toLocale*`), una altra pantalla i una altra targeta gràfica, i una empremta de canvas i d'àudio inventada. La disfressa és la mateixa cada vegada que tornes al mateix web, i diferent per a cada web.
+**Et disfressa.** Cada web veu un navegador diferent i coherent: un altre sistema (Windows o Mac), una altra ciutat del mateix país que la teva IP, un altre idioma i una altra zona horària (`Date`, `Intl`, `Temporal`, `toLocale*`), una altra pantalla (i densitat de píxels) i una altra targeta gràfica, i una empremta de canvas (també `OffscreenCanvas` i `readPixels` de WebGL) i d'àudio inventada. Si la IP és d'un país que la disfressa no coneix, l'idioma, l'hora i la ubicació es queden els de debò, perquè no xoquin amb la IP. La disfressa és la mateixa cada vegada que tornes al mateix web, i diferent per a cada web.
 
 La disfressa arriba també als llocs on els webs més espavilats van a buscar el navegador de debò:
 - **Els marcs que la pàgina crea** (`iframe`, `window[0]`, `innerHTML`, `window.open`) es disfressen en el moment que es creen, abans que la pàgina els pugui llegir.
 - **Els treballadors** (`Worker`, `SharedWorker` i service workers): els que són un fitxer reben la disfressa al començament de l'script mentre baixa, i els que la pàgina crea des d'un `blob:` es creen amb la disfressa a dins.
 
-**IP falses on es pot.** Els scripts que pregunten la IP per WebRTC en reben una de falsa, i les peticions porten una IP falsa a `X-Forwarded-For`. Aquestes IP surten sempre de l'espai que els proveïdors fan servir per dins (`100.64.0.0/10`): semblen d'una connexió de debò, però no són de ningú, i no poden apuntar cap persona. La IP de la connexió és la real: una extensió no la pot canviar.
+**IP falses on es pot.** Els scripts que pregunten la IP per WebRTC en reben una de falsa (als candidats, a `toJSON()`, a `getStats()`, i també les IPv6), i les peticions porten una IP falsa a `X-Forwarded-For`. Aquestes IP surten sempre de l'espai que els proveïdors fan servir per dins (`100.64.0.0/10`): semblen d'una connexió de debò, però no són de ningú, i no poden apuntar cap persona. La IP de la connexió és la real: una extensió no la pot canviar.
 
 **Webs de confiança.** Als que tu tries (per defecte, Google, YouTube, GitHub, Claude, Mozilla i Vivaldi) hi vas sense disfressa, i s'hi queden les seves galetes perquè no et tregui de la sessió. Les de tercers i les de seguiment, en canvi, se les menja igualment. La confiança només compta quan visites el web: si surt dins d'un altre (un vídeo de YouTube en un diari, un reCAPTCHA), és un tercer més.
 
-**Respon els avisos de galetes** (OneTrust, Cookiebot, Didomi, Usercentrics, Sourcepoint i altres): els accepta o els rebutja per tu, com triïs.
+**Respon els avisos de galetes** (OneTrust, Cookiebot, Didomi, Usercentrics, Sourcepoint i altres): els accepta o els rebutja per tu, com triïs. Un botó qualsevol només el clica si al voltant es parla de galetes, mai si és d'un formulari (podria ser acceptar unes condicions), i als bancs i als governs, mai.
 
 **Es menja els gravadors de sessió.** Hotjar, Microsoft Clarity, FullStory i companyia graven on mous el ratolí, on cliques i què escrius, per mirar-ho després com un vídeo. Menja galetes no els deixa carregar ni enviar res: la sessió que graven és buida.
 
@@ -40,7 +40,9 @@ La disfressa arriba també als llocs on els webs més espavilats van a buscar el
 
 **Pots provar la disfressa.** Des de la finestreta s'obre Cover Your Tracks, una prova de l'EFF que mira si el teu navegador es pot reconèixer. Per comparar, la pots fer també sense disfressa: durant 15 minuts, només en aquella prova.
 
-**Si la disfressa trenca un web**, se la treu sola. Quan un web disfressat es torna a carregar sense parar (la mateixa adreça 5 vegades en 30 segons), a partir d'aquell moment hi vas amb el navegador de debò i t'avisa. Les galetes de seguiment i les de tercers, se les continua menjant.
+**Si la disfressa trenca un web**, se la treu sola. Quan un web disfressat es torna a carregar sense parar (la mateixa adreça 5 vegades en 30 segons), durant un dia hi vas amb el navegador de debò i t'avisa. No és per sempre: un web que es recarrega sol (resultats en directe, una càmera) no ha de perdre la disfressa per sempre. Les galetes de seguiment i les de tercers, se les continua menjant.
+
+**Contenidors i finestres privades** (Firefox): cada contenidor té els seus identificadors falsos, i el que es menja en un no toca els altres.
 
 **Si la IP canvia de país** (per exemple, si encens una VPN), es posa una disfressa del país nou i se les menja totes, perquè el web no pugui lligar l'abans i el després.
 
@@ -55,7 +57,7 @@ La disfressa arriba també als llocs on els webs més espavilats van a buscar el
   1. Pel nom del web: `.gov`, `.gob.xx`, `.gouv.xx`, `.go.jp`, `admin.ch`…, noms amb *bank*, *banc*, *banque*, *caixa*, *caja*, *Sparkasse*…, les marques dels bancs grans i una llista fixa (PayPal, Stripe, Redsys, Bizum, `gencat.cat`, `canada.ca`, `bund.de`…).
   2. Pel certificat del web: si l'organització és un banc, una entitat financera o una administració («Banco…», «Credit Union», «Ministerio…», «Government…»), el web es torna a demanar sense disfressa abans que es vegi.
   3. Pels sistemes contra el frau i de verificació d'identitat (ThreatMetrix, iovation, BioCatch, Forter, SEON, Onfido, Jumio, Veriff…): si una pàgina en carrega un, el web passa a anar sense disfressa.
-  4. Per les pàgines amb contrasenya o targeta: el primer cop que un web en demana una, passa a anar sense disfressa. Així els sistemes contra el frau i contra els comptes robats (i contra qui torna amb un altre compte després que l'hagin expulsat) continuen funcionant.
+  4. Per les pàgines amb contrasenya o targeta: el primer cop que un web en demana una (el web mateix, no un anunci d'un altre web que hi surti), passa a anar sense disfressa. Així els sistemes contra el frau i contra els comptes robats (i contra qui torna amb un altre compte després que l'hagin expulsat) continuen funcionant.
 - **Les xarxes socials, la missatgeria, les cites i les plataformes on hi ha menors, també amb la identitat real.** Instagram, TikTok, WhatsApp, Discord, Tinder, Roblox i la resta: és on passen l'assetjament i l'abús, i els seus sistemes contra els comptes falsos i contra qui torna després que l'expulsin han de funcionar.
 - **Però als bancs, als governs i a les xarxes, les galetes de tercers se les menja.** Les que hi posen Google, Facebook o els anunciants (també `_ga` i companyia) es canvien per falses i desapareixen en tancar la pestanya. Les del mateix banc (la sessió) i les dels pagaments i dels sistemes contra el frau no es toquen.
 - **No s'amaga.** Un web atent pot notar que fas servir alguna cosa així.
@@ -77,7 +79,7 @@ Mentre no estigui signada per Mozilla, s'instal·la com a complement temporal (s
 1. Obre `about:debugging#/runtime/this-firefox`.
 2. Clica «Carrega un complement temporal…» i tria `extensio/manifest.json`.
 
-Cal el Firefox 128 o més nou.
+Cal el Firefox 140 o més nou.
 
 ### Al Vivaldi, el Chrome i el Brave
 

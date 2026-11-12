@@ -129,7 +129,7 @@ def main():
         'user_pref("intl.accept_languages", "ca,es,en");',
         # Noms de prova que van al servidor local (no surt res a internet)
         'user_pref("network.dns.localDomains", "diari.test,www.bancprova.test,www.prova.gob.es,botiga.test,'
-        'h.online-metrix.net,empresa.test,www.instagram.com,revista.test,amagat.test,bucle.test,static.hotjar.com,us1.list-manage.com,l.facebook.com,vell.test");',
+        'h.online-metrix.net,empresa.test,www.instagram.com,revista.test,amagat.test,bucle.test,static.hotjar.com,us1.list-manage.com,l.facebook.com,vell.test,premsa.test");',
     ]))
     env = dict(os.environ, MOZ_HEADLESS="1")
     ff = subprocess.Popen(["firefox", "--headless", "--marionette", "-remote-allow-system-access", "--no-remote", "--profile", str(perfil)],
@@ -559,6 +559,63 @@ def main():
         en_una_altra('b.runtime.sendMessage({tipus: "senseDisfressa", lloc: "diari.test", minuts: 1})')
         t14 = simple("http://diari.test:8765/simple")
         comprova("«Compara-la sense disfressa»: el web va sense disfressa una estona", "Linux" in t14.get("userAgent", ""), t14.get("userAgent"))
+
+        # ---- 15. La revisió a fons del 12/11/2026 ----
+        print("\n15. La revisió a fons del 12/11/2026")
+        m.ves("http://premsa.test:8765/revisio")
+        rv = info_pagina(m)
+        rend = str(rv.get("renderer"))
+        comprova("WebGL: RENDERER diu la gràfica de la disfressa (al Firefox, per aquí sortia la de debò)",
+                 rend == str(rv.get("unmasked")) and ("ANGLE" in rend or "Apple" in rend), rv.get("renderer"))
+        comprova("WebGL: readPixels porta el soroll de l'empremta", (rv.get("readPixels") or 0) > 0, rv.get("readPixels"))
+        comprova("OffscreenCanvas: el mateix soroll que el canvas (i no la imatge neta)",
+                 rv.get("offscreen") == rv.get("canvas") and rv.get("offscreen") != rv.get("net"),
+                 f"canvas {rv.get('canvas')} · offscreen {rv.get('offscreen')} · net {rv.get('net')}")
+        comprova("devicePixelRatio lliga amb el sistema de la disfressa",
+                 (rv.get("platform") == "MacIntel" and rv.get("dpr") == 2) or (rv.get("platform") == "Win32" and rv.get("dpr") in (1, 1.25, 1.5)),
+                 f"{rv.get('platform')} · {rv.get('dpr')}")
+        comprova("WebRTC: el candidat i toJSON() porten la IP falsa",
+                 "203.0.113.7" not in str(rv.get("candidat")) and "203.0.113.7" not in str(rv.get("json")) and "100." in str(rv.get("json")),
+                 f"{rv.get('candidat')} · {rv.get('json')} · {rv.get('webrtcError')}")
+        comprova("WebRTC: les IPv6 també", "2001:db8" not in str(rv.get("ipv6")) and rv.get("ipv6"), rv.get("ipv6"))
+        comprova("WebRTC: getStats() continua funcionant", rv.get("stats") is True, rv.get("webrtcError"))
+        m.ves("http://premsa.test:8765/avis-formulari")
+        time.sleep(2.5)
+        e1 = m.js("return document.getElementById('estat1').textContent;")
+        e2 = m.js("return document.getElementById('estat2').textContent;")
+        comprova("avisos: un «Acceptar» dins d'un formulari no es clica mai", e1 == "no", e1)
+        comprova("i el «D'acord» d'un avís de galetes, sí", e2 == "clicat", e2)
+        m.ves("http://premsa.test:8765/marc-anunci")
+        time.sleep(3)
+        ra15 = en_una_altra('b.storage.local.get("realAuto").then((s) => s.realAuto || [])') or []
+        comprova("un anunci (un marc d'un altre web) amb contrasenya no treu la disfressa al web", "premsa.test" not in ra15, ra15)
+        # Contenidors: la galeta falsa d'una pestanya normal no es copia a un contenidor.
+        m.ves("http://premsa.test:8765/simple")
+        time.sleep(0.5)
+        m.context("chrome")
+        uc = m.js("""
+          let CIS;
+          for (const url of ["moz-src:///toolkit/components/contextualidentity/ContextualIdentityService.sys.mjs",
+                             "resource://gre/modules/ContextualIdentityService.sys.mjs"]) {
+            try { CIS = ChromeUtils.importESModule(url).ContextualIdentityService; break; } catch (e) { /* el següent */ }
+          }
+          const ContextualIdentityService = CIS;
+          const id = ContextualIdentityService.create("Prova", "fingerprint", "blue").userContextId;
+          const w = Services.wm.getMostRecentWindow("navigator:browser");
+          w.__mgPestanya = w.gBrowser.addTab("http://premsa.test:8765/simple",
+            { userContextId: id, triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal() });
+          return id;""")
+        time.sleep(2.5)
+        ga = m.js("""
+          const out = {};
+          for (const c of Services.cookies.cookies) if (c.name === "_ga" && c.host.includes("premsa.test")) out[c.originAttributes.userContextId] = c.value;
+          const w = Services.wm.getMostRecentWindow("navigator:browser");
+          if (w.__mgPestanya) w.gBrowser.removeTab(w.__mgPestanya);
+          return out;""")
+        m.context("content")
+        normal, cont = (ga or {}).get("0"), (ga or {}).get(str(uc))
+        comprova("contenidors: cadascun té el seu identificador fals (no es copia el de la pestanya normal)",
+                 normal and cont and normal != cont and "111111111" not in cont, ga)
         if not all(ok for _, ok, _ in resultats):
             # Si alguna falla: els errors de l'extensió que ha vist el Firefox.
             m.context("chrome")

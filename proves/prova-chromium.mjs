@@ -49,7 +49,7 @@ const nav = spawn(binari, ["--headless=new", "--disable-gpu", "--no-first-run", 
   ...(ambChrome ? ["--enable-unsafe-extension-debugging"] : [`--load-extension=${EXT}`]),
   `--user-data-dir=${perfil}`, `--remote-debugging-port=${PORT}`,
   "--disable-features=HttpsUpgrades,HttpsFirstBalancedModeAutoEnable",
-  "--host-resolver-rules=MAP diari.test 127.0.0.1, MAP www.bancprova.test 127.0.0.1, MAP www.prova.gob.es 127.0.0.1, MAP botiga.test 127.0.0.1, MAP h.online-metrix.net 127.0.0.1, MAP revista.test 127.0.0.1, MAP amagat.test 127.0.0.1, MAP bucle.test 127.0.0.1, MAP static.hotjar.com 127.0.0.1, MAP us1.list-manage.com 127.0.0.1, MAP l.facebook.com 127.0.0.1, MAP vell.test 127.0.0.1",
+  "--host-resolver-rules=MAP diari.test 127.0.0.1, MAP www.bancprova.test 127.0.0.1, MAP www.prova.gob.es 127.0.0.1, MAP botiga.test 127.0.0.1, MAP h.online-metrix.net 127.0.0.1, MAP revista.test 127.0.0.1, MAP amagat.test 127.0.0.1, MAP bucle.test 127.0.0.1, MAP static.hotjar.com 127.0.0.1, MAP us1.list-manage.com 127.0.0.1, MAP l.facebook.com 127.0.0.1, MAP vell.test 127.0.0.1, MAP premsa.test 127.0.0.1",
   "about:blank"], { stdio: "ignore" });
 
 let c;
@@ -297,8 +297,8 @@ try {
   const b13b = await info();
   comprova("el web que es tornava a carregar sense parar, ara sense disfressa", /Linux/.test(b13b.userAgent), `${b13b.userAgent} · càrregues ${b13b.carrega}`);
   comprova("i ja no es torna a carregar", b13b.carrega < 15 && b13b.carrega === b13.carrega, `càrregues ${b13.carrega} → ${b13b.carrega}`);
-  const ra13 = JSON.parse(await alFons("JSON.stringify(cfg.realAuto)"));
-  comprova("bucle.test, a la llista automàtica", ra13.includes("bucle.test"), ra13.join(", "));
+  const ra13 = JSON.parse(await alFons("JSON.stringify({ temporals: Object.keys(realTemporal).filter(temporal), auto: cfg.realAuto })"));
+  comprova("bucle.test, sense disfressa una estona (no per sempre)", ra13.temporals.includes("bucle.test") && !ra13.auto.includes("bucle.test"), JSON.stringify(ra13));
 
   // ---- 14. Les idees de l'11/11/2026 ----
   console.log("\n14. Gravadors, espies, rebots, GPC, galetes velles i el resum");
@@ -350,6 +350,43 @@ try {
   await ves("http://diari.test:8765/simple", 1500);
   const t14 = await info();
   comprova("«Compara-la sense disfressa»: el web va sense disfressa una estona", /Linux/.test(t14.userAgent), t14.userAgent);
+
+  // ---- 15. La revisió a fons del 12/11/2026 ----
+  console.log("\n15. La revisió a fons del 12/11/2026");
+  await ves("http://premsa.test:8765/revisio", 1500);
+  const rv = await info();
+  comprova("WebGL: readPixels porta el soroll de l'empremta", (rv.readPixels || 0) > 0, String(rv.readPixels));
+  comprova("OffscreenCanvas: el mateix soroll que el canvas (i no la imatge neta)", rv.offscreen === rv.canvas && rv.offscreen !== rv.net,
+    `canvas ${rv.canvas} · offscreen ${rv.offscreen} · net ${rv.net}`);
+  comprova("devicePixelRatio lliga amb el sistema de la disfressa",
+    (rv.platform === "MacIntel" && rv.dpr === 2) || (rv.platform === "Win32" && [1, 1.25, 1.5].includes(rv.dpr)), `${rv.platform} · ${rv.dpr}`);
+  comprova("WebRTC: el candidat i toJSON() porten la IP falsa", !String(rv.candidat).includes("203.0.113.7") && !String(rv.json).includes("203.0.113.7")
+    && String(rv.json).includes("100."), `${rv.candidat} · ${rv.json} · ${rv.webrtcError}`);
+  comprova("WebRTC: les IPv6 també", rv.ipv6 && !String(rv.ipv6).includes("2001:db8"), String(rv.ipv6));
+  comprova("WebRTC: getStats() continua funcionant", rv.stats === true, String(rv.webrtcError));
+  // La pàgina no pot desfer el soroll canviant Math (al Chromium el codi és dins de la pàgina).
+  await ves("http://premsa.test:8765/revisio", 1200);
+  const sm = await aPagina(`(() => { const mn = Math.min, mx = Math.max, fl = Math.floor; Math.min = () => 0; Math.max = () => 0; Math.floor = () => 0;
+    const c = document.createElement("canvas"); c.width = 200; c.height = 100; const x = c.getContext("2d");
+    x.fillStyle = "#336699"; x.fillRect(0, 0, 200, 100); x.fillStyle = "#ffcc00"; x.fillRect(20, 20, 60, 40);
+    const d = x.getImageData(0, 0, 200, 100).data; Math.min = mn; Math.max = mx; Math.floor = fl;
+    let h = 2166136261; for (let i = 0; i < d.length; i++) { h ^= d[i]; h = Math.imul(h, 16777619); } return h >>> 0; })()`);
+  comprova("canviar Math.min/max/floor no treu el soroll del canvas", sm === rv.canvas && sm !== rv.net, `${sm} · ${rv.canvas} · net ${rv.net}`);
+  const capc = JSON.parse(await alFons(`chrome.declarativeNetRequest.getDynamicRules().then((rs) => JSON.stringify(rs.filter((x) => x.id >= PRIMER_ID_LLOC && x.condition.requestDomains && x.condition.requestDomains.includes("premsa.test")).map((x) => x.action.requestHeaders.map((h) => h.header))))`));
+  comprova("regla del web per al document (i les pistes del navegador: client hints)",
+    capc.length === 1 && capc[0].includes("user-agent") && capc[0].includes("sec-ch-ua-platform-version") && capc[0].includes("sec-ch-ua-arch"), JSON.stringify(capc));
+  await ves("http://premsa.test:8765/avis-formulari", 2500);
+  const e1 = await aPagina("document.getElementById('estat1').textContent");
+  const e2 = await aPagina("document.getElementById('estat2').textContent");
+  comprova("avisos: un «Acceptar» dins d'un formulari no es clica mai", e1 === "no", e1);
+  comprova("i el «D'acord» d'un avís de galetes, sí", e2 === "clicat", e2);
+  await ves("http://premsa.test:8765/marc-anunci", 3000);
+  const ra15 = JSON.parse(await alFons("JSON.stringify(cfg.realAuto)"));
+  comprova("un anunci (un marc d'un altre web) amb contrasenya no treu la disfressa al web", !ra15.includes("premsa.test"), ra15.join(", "));
+  await aPagina(`window.postMessage({ __menjaGaletes: 1, missatge: { tipus: "galeta", nom: "inventada", lloc: "premsa.test", original: "x", fals: "y" } }, "*")`);
+  await dorm(500);
+  const g15 = JSON.parse(await alFons(`chrome.tabs.query({}).then((ts) => { const t = ts.find((x) => (x.url || "").includes("premsa.test")); return JSON.stringify(((t && pestanyes.get(t.id)) || {}).galetes || []); })`));
+  comprova("la pàgina no pot inventar-se galetes menjades (només en passen de seguiment)", !JSON.stringify([...g15]).includes("inventada"), JSON.stringify(g15));
 } catch (err) {
   console.log("ERROR:", err.message);
   resultats.push(false);

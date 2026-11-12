@@ -180,9 +180,11 @@ async function pinta() {
   const usuari = (cfg.confianca || []).some((w) => MG.lloc(w) === lloc);
   const sempre = MG.esSempreReal(host);
   const xarxa = !sempre && MG.esXarxa(host);
-  const auto = (cfg.realAuto || []).includes(lloc);
-  const confiat = usuari || sempre || xarxa || auto;
-  const etiq = !cfg.actiu ? h("span.etiq.apagat", "Apagat") : confiat ? h("span.etiq.conf", "De confiança") : h("span.etiq.disf", "Disfressat");
+  // Sense disfressa una estona (la prova de la disfressa, o un web que es tornava a carregar sense parar).
+  const fins = !sempre && !xarxa && !usuari && (e.temporals || {})[lloc];
+  const auto = !fins && (cfg.realAuto || []).includes(lloc);
+  const confiat = usuari || sempre || xarxa || auto || !!fins;
+  const etiq = !cfg.actiu ? h("span.etiq.apagat", "Apagat") : fins ? h("span.etiq.conf", "Sense disfressa") : confiat ? h("span.etiq.conf", "De confiança") : h("span.etiq.disf", "Disfressat");
   cos.append(h("div.web", "🌐", h("span.domini", lloc), etiq));
 
   if (!cfg.actiu) {
@@ -190,13 +192,17 @@ async function pinta() {
     return;
   }
   if (e.scriptsUsuari === false) {
-    cos.append(h("div.nota-ip", "Per poder-te disfressar, cal un permís: a la pàgina d'extensions (vivaldi://extensions), " +
+    cos.append(h("div.nota-ip", "Per poder-te disfressar, cal un permís: a la pàgina d'extensions (vivaldi://extensions, chrome://extensions…), " +
       "obre els detalls de Menja galetes i activa «Permet els scripts d'usuari». Les galetes, me les menjo igualment."));
   }
 
   if (confiat) {
     const img = h("img"); img.src = "../icones/galeta.svg";
-    const explica = sempre
+    const hora = fins ? new Date(fins).toLocaleTimeString("ca", { hour: "2-digit", minute: "2-digit" }) : "";
+    const explica = fins
+      ? `Fins a les ${hora} hi vas sense disfressa: per comparar la prova de la disfressa, o perquè amb la disfressa ` +
+        "es tornava a carregar sense parar. Després, et torno a disfressar. Les galetes de seguiment i les de tercers, me les menjo igualment."
+      : sempre
       ? "És un banc, un web de pagaments o d'un govern. Els seus sistemes contra el frau han de veure el navegador de debò."
       : xarxa
         ? "És una xarxa social, de missatgeria o de cites, o una plataforma on hi ha menors. Hi vas amb la teva identitat real, perquè els seus sistemes contra els comptes falsos, l'assetjament i els usuaris expulsats funcionin."
@@ -204,7 +210,7 @@ async function pinta() {
         ? "Aquest web demana una contrasenya o una targeta, fa servir un sistema contra el frau, té el certificat d'un banc o d'una administració, o amb la disfressa es tornava a carregar sense parar. Hi vas sense disfressa, perquè funcioni."
         : "És un web de confiança: hi vas sense disfressa, i les seves galetes es queden perquè no et tregui de la sessió. Les de tercers i les de seguiment, me les menjo igualment.";
     cos.append(h("div.heroi", img, h("div",
-      h("div.mitja.verd", sempre || xarxa || auto ? "Aquí hi vas amb la teva identitat real" : "Aquí no et disfresso"),
+      h("div.mitja.verd", fins ? "Aquí no et disfresso, una estona" : sempre || xarxa || auto ? "Aquí hi vas amb la teva identitat real" : "Aquí no et disfresso"),
       h("div.sota", explica))));
     if (e.galetes.length) {
       cos.append(h("div.titol-llista", "Galetes de tercers i de seguiment · menjades igualment"));
@@ -213,7 +219,7 @@ async function pinta() {
     cos.append(...aturats(e));
     const rc = seccioResum(e);
     if (rc) cos.append(rc);
-    if (!sempre && !xarxa && !auto) {
+    if (!sempre && !xarxa && !auto && !fins) {
       const b = h("button.sec", "Ja no hi confio");
       b.onclick = () => browser.runtime.sendMessage({ tipus: "confia", lloc, si: false, tabId: tab.id }).then(() => window.close());
       cos.append(h("div.peu", b));
@@ -251,8 +257,8 @@ async function pinta() {
   const idiomaReal = MG.IDIOMES[(navigator.language || "").split("-")[0]] || navigator.language;
   const files = [];
   if (f.navegador) files.push(["Navegador", `${d.navegadorNom} ${cfg.versio} · ${d.soNom}`, `${navegadorReal()} · ${sistemaReal()}`, ""]);
-  if (f.ubicacio) files.push(["Ubicació", d.ciutat, ubicacioReal(cfg.paisIP, e.coloReal), ""]);
-  if (f.idioma) files.push(["Idioma", MG.IDIOMES[d.idiomes[0].split("-")[0]] || d.idiomes[0], idiomaReal, ""]);
+  if (f.ubicacio) files.push(["Ubicació", d.ciutat || "la de debò", ubicacioReal(cfg.paisIP, e.coloReal), ""]);
+  if (f.idioma) files.push(["Idioma", d.idiomes ? MG.IDIOMES[d.idiomes[0].split("-")[0]] || d.idiomes[0] : "el de debò", idiomaReal, ""]);
   if (f.pantalla) files.push(["Pantalla", `${d.pantalla.w} × ${d.pantalla.h}`, `${real.w} × ${real.h}`, ""]);
   if (f.pantalla) files.push(["Gràfica", d.gpu.nom, graficaReal(), ""]);
   const emp = f.empremta ? empremtes(d) : null;
@@ -276,9 +282,11 @@ async function pinta() {
       `Amb la disfressa, aquest web rep el ${emp.falsa}; sense, rebria el ${emp.real}, que és el teu.`));
   }
   const p = MG.PAISOS[cfg.paisIP];
-  cos.append(h("div.nota-ip", cfg.pais === "ip"
-    ? `La IP de la connexió és la real. Per això la disfressa és ${p ? p.de : "del teu país"}, com la IP, però d'una altra ciutat.`
-    : "La IP de la connexió és la real. La disfressa és d'un país qualsevol, i potser no lliga amb la IP."));
+  cos.append(h("div.nota-ip", cfg.pais !== "ip"
+    ? "La IP de la connexió és la real. La disfressa és d'un país qualsevol, i potser no lliga amb la IP."
+    : p
+      ? `La IP de la connexió és la real. Per això la disfressa és ${p.de}, com la IP, però d'una altra ciutat.`
+      : "La IP de la connexió és la real, i és d'un país que la disfressa no coneix: l'idioma, l'hora i la ubicació es queden els de debò, perquè lliguin amb la IP."));
 
   cos.append(seccioProva());
   const rs = seccioResum(e);

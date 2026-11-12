@@ -167,8 +167,9 @@ function MG_pagina(MG, cfg) {
       posaGetter(N, "appVersion", () => d.appVersion);
     }
 
-    /* ---- 3. Idioma i hora: navigator, Intl, Date i Temporal ---- */
-    if (f.idioma) {
+    /* ---- 3. Idioma i hora: navigator, Intl, Date i Temporal ----
+     * (Si la IP és d'un país que la disfressa no coneix, es queden els de debò.) */
+    if (f.idioma && d.idiomes) {
       const N = W.Navigator.prototype;
       const llista = W.Object.freeze(cloneInto(d.idiomes, win));
       posaGetter(N, "language", () => d.idiomes[0]);
@@ -186,17 +187,21 @@ function MG_pagina(MG, cfg) {
       posaGetter(S, "colorDepth", () => 24);
       posaGetter(S, "pixelDepth", () => 24);
       posaGetter(W.Navigator.prototype, "hardwareConcurrency", () => d.nuclis);
+      // La densitat de la pantalla, la de la disfressa (un Mac és sempre 2).
+      try { Object.defineProperty(W, "devicePixelRatio", { get: fn(() => d.pantalla.dpr), configurable: true, enumerable: true }); } catch (e) { /* res */ }
       for (const nom of ["WebGLRenderingContext", "WebGL2RenderingContext"]) {
         embolcalla(W[nom] && W[nom].prototype, "getParameter", (o) => function (pname) {
           if (pname === 0x9245) return d.gpu.vendor;     // UNMASKED_VENDOR_WEBGL
           if (pname === 0x9246) return d.gpu.renderer;   // UNMASKED_RENDERER_WEBGL
+          if (pname === 0x1F01) return d.gpu.renderer;   // RENDERER: al Firefox també diu la targeta de debò
           return o.call(this, pname);
         });
       }
     }
 
-    /* ---- 5. Ubicació ---- */
-    if (f.ubicacio) {
+    /* ---- 5. Ubicació ----
+     * (Si la IP és d'un país que la disfressa no coneix, no s'inventa: el navegador et pregunta.) */
+    if (f.ubicacio && d.lat !== null) {
       try {
         const G = W.Geolocation.prototype;
         const posicio = () => cloneInto({
@@ -224,7 +229,7 @@ function MG_pagina(MG, cfg) {
         const getImageData = C2.getImageData;
         C2.getImageData = fn(function () {
           const res = getImageData.call(this, ...arguments);
-          try { MG.sorolla(res.data, res.data.length, d.soroll + "|img"); } catch (e) { /* res */ }
+          try { MG.sorolla(res.data, res.data.length, d.soroll + "|img", MG.M, MG.car); } catch (e) { /* res */ }
           return res;
         });
         // Una còpia del canvas amb soroll. La crida a getImageData de la còpia va per la
@@ -252,14 +257,55 @@ function MG_pagina(MG, cfg) {
           return toBlob.call(this, ...arguments);
         });
       } catch (e) { /* res */ }
+      // Els canvas fora de pantalla (OffscreenCanvas) del mateix fil de la pàgina.
+      try {
+        const OC2 = W.OffscreenCanvasRenderingContext2D && W.OffscreenCanvasRenderingContext2D.prototype;
+        if (OC2) {
+          const ogid = OC2.getImageData;
+          OC2.getImageData = fn(function () {
+            const res = ogid.call(this, ...arguments);
+            try { MG.sorolla(res.data, res.data.length, d.soroll + "|img", MG.M, MG.car); } catch (e) { /* res */ }
+            return res;
+          });
+          const OCP = W.OffscreenCanvas.prototype, ctb = OCP.convertToBlob;
+          if (typeof ctb === "function") {
+            OCP.convertToBlob = fn(function () {
+              try {
+                const w = this.width, h = this.height;
+                if (w && h && w * h <= 4e6) {
+                  const c = new win.OffscreenCanvas(w, h);
+                  const x = c.getContext("2d");
+                  x.drawImage(this, 0, 0);
+                  const im = x.getImageData(0, 0, w, h);
+                  MG.sorolla(im.data, im.data.length, d.soroll + "|img", MG.M, MG.car);
+                  x.putImageData(im, 0, 0);
+                  return ctb.call(c.wrappedJSObject, ...arguments);
+                }
+              } catch (e) { /* res */ }
+              return ctb.call(this, ...arguments);
+            });
+          }
+        }
+      } catch (e) { /* res */ }
+      // Els píxels que llegeix WebGL (readPixels): el mateix soroll.
+      for (const nom of ["WebGLRenderingContext", "WebGL2RenderingContext"]) {
+        embolcalla(W[nom] && W[nom].prototype, "readPixels", (o) => function () {
+          const res = o.call(this, ...arguments);
+          try {
+            const px = arguments[6];
+            if (px && px.BYTES_PER_ELEMENT === 1 && px.length) MG.sorolla(px, px.length, d.soroll + "|gl", MG.M, MG.car);
+          } catch (e) { /* res */ }
+          return res;
+        });
+      }
       embolcalla(W.AudioBuffer && W.AudioBuffer.prototype, "getChannelData", (o) => function (canal) {
         const dades = o.call(this, canal);
         try {
           // Arrodoneix i hi suma menys de mig pas: es pot aplicar dues vegades i dona el mateix.
           const r = MG.rng(`${d.soroll}|audio|${dades.length}`);
           for (let i = 0; i < 12; i++) {
-            const k = Math.floor(r() * dades.length);
-            dades[k] = Math.round(dades[k] * 1e6) / 1e6 + (r() - 0.5) * 4e-7;
+            const k = MG.M.floor(r() * dades.length);
+            dades[k] = MG.M.round(dades[k] * 1e6) / 1e6 + (r() - 0.5) * 4e-7;
           }
         } catch (e) { /* res */ }
         return dades;
@@ -268,9 +314,7 @@ function MG_pagina(MG, cfg) {
 
     /* ---- 7. La IP que demanen els scripts (WebRTC) ---- */
     if (f.ipScripts && d.ip) {
-      const privada = (ip) => /^(10\.|127\.|0\.|169\.254\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(ip);
-      const canviaIP = (text) => String(text).replace(/\b(\d{1,3}(?:\.\d{1,3}){3})\b/g,
-        (ip) => (privada(ip) ? ip : d.ip));
+      const canviaIP = MG.canviaIP(d.ip);
       try {
         const IC = W.RTCIceCandidate && W.RTCIceCandidate.prototype;
         if (IC) {
@@ -285,6 +329,36 @@ function MG_pagina(MG, cfg) {
           if (desc && desc.get) posaGetter(SD, "sdp", function () { return canviaIP(desc.get.call(this)); });
         }
       } catch (e) { /* res */ }
+      // toJSON() i getStats() també porten les adreces.
+      for (const [classe, camps] of [["RTCIceCandidate", ["candidate", "address", "relatedAddress"]], ["RTCSessionDescription", ["sdp"]]]) {
+        embolcalla(W[classe] && W[classe].prototype, "toJSON", (o) => function () {
+          const res = o.call(this);
+          try {
+            const rw = res && (res.wrappedJSObject || res);
+            for (const c of camps) if (typeof rw[c] === "string") rw[c] = canviaIP(rw[c]);
+          } catch (e) { /* res */ }
+          return res;
+        });
+      }
+      embolcalla(W.RTCPeerConnection && W.RTCPeerConnection.prototype, "getStats", (o) => function () {
+        const pr = o.call(this, ...arguments);
+        try {
+          return pr.then(fn((rep) => {
+            try {
+              const m = new W.Map();
+              const rw = rep.wrappedJSObject || rep;
+              rw.forEach(fn((v, k) => {
+                const c = W.Object.assign(new W.Object(), v.wrappedJSObject || v);
+                for (const camp of ["address", "ip", "candidate", "relatedAddress", "url"]) {
+                  if (typeof c[camp] === "string") c[camp] = canviaIP(c[camp]);
+                }
+                m.set(k, c);
+              }));
+              return m;
+            } catch (e) { return rep; }
+          }));
+        } catch (e) { return pr; }
+      });
     }
 
     /* ---- 8. Els treballadors que la pàgina crea des d'un blob o un data: ----
@@ -415,7 +489,9 @@ function MG_pagina(MG, cfg) {
    * Si el web demana una contrasenya o una targeta, ha de veure el navegador de debò,
    * perquè els sistemes contra el frau i contra els comptes robats funcionin. El fons
    * se'l queda com a web de confiança i torna a carregar la pàgina sense disfressa. */
-  if (!real) {
+  // Només el web de dalt i els marcs del mateix web: un marc d'un altre web (un anunci) no pot treure
+  // la disfressa a tot el web ensenyant un camp de contrasenya.
+  if (!real && MG.lloc(location.hostname) === llocSuperior) {
     const SEL = "input[type='password'], input[autocomplete~='cc-number'], input[autocomplete~='cc-csc'], " +
       "input[name*='cardnumber' i], input[name*='card_number' i], input[id*='cardnumber' i]";
     let fet = false;
@@ -443,58 +519,13 @@ function MG_pagina(MG, cfg) {
   // (Als webs de confiança, l'avís el respons tu.)
   if (!usuari && cfg.avisos !== "res" && (window.top === window || /consent|cmp|privacy|sp_message|cookie/i.test(location.href))) {
     const accepta = cfg.avisos === "acceptar";
-    // [nom, botó d'acceptar, botó de rebutjar]
-    const CMP = [
-      ["OneTrust", "#onetrust-accept-btn-handler", "#onetrust-reject-all-handler"],
-      ["Cookiebot", "#CybotCookiebotDialogBodyLevelButtonLevelOptinAllowAll, #CybotCookiebotDialogBodyButtonAccept",
-        "#CybotCookiebotDialogBodyButtonDecline"],
-      ["Didomi", "#didomi-notice-agree-button", "#didomi-notice-disagree-button, .didomi-continue-without-agreeing"],
-      ["CookieYes", ".cky-btn-accept", ".cky-btn-reject"],
-      ["Complianz", ".cmplz-btn.cmplz-accept", ".cmplz-btn.cmplz-deny"],
-      ["Borlabs", "a[data-cookie-accept-all], ._brlbs-btn-accept-all", "a[data-cookie-refuse], ._brlbs-refuse-btn a"],
-      ["TrustArc", "#truste-consent-button", "#truste-consent-required"],
-      ["Osano", ".osano-cm-accept-all", ".osano-cm-denyAll, .osano-cm-deny"],
-      ["Termly", "[data-tid='banner-accept']", "[data-tid='banner-decline']"],
-      ["Iubenda", ".iubenda-cs-accept-btn", ".iubenda-cs-reject-btn"],
-      ["Klaro", ".cm-btn-accept-all, .cm-btn-success", ".cm-btn-decline"],
-      ["Cookie Notice", "#cn-accept-cookie", "#cn-refuse-cookie"],
-      ["Moove", ".moove-gdpr-infobar-allow-all", ".moove-gdpr-infobar-reject-btn"],
-      ["Sourcepoint", "button.sp_choice_type_11", "button.sp_choice_type_13"],
-      ["Quantcast", ".qc-cmp2-summary-buttons button[mode='primary']", ""],
-    ];
-    const ACCEPTAR = /^(acceptar|accepta|acceptar-ho tot|acceptar tot|acceptar totes|accepto|aceptar|aceptar todo|aceptar todas|aceptar y cerrar|acepto|accept|accept all|accept all cookies|allow all|agree|i agree|tout accepter|accepter|alle akzeptieren|akzeptieren|accetta|accetta tutti|aceitar|aceitar todos|ok|d'acord|de acuerdo|entesos|entendido)$/i;
-    const REBUTJAR = /^(rebutjar|rebutja|rebutjar-ho tot|rebutjar tot|rebutjar totes|rechazar|rechazar todo|rechazar todas|no acepto|denegar|reject|reject all|decline|decline all|refuse|tout refuser|refuser|alle ablehnen|ablehnen|rifiuta|rifiuta tutti|rejeitar|continuar sin aceptar|continuar sense acceptar|continue without accepting)$/i;
-    const clica = (el, cmp) => {
-      el.click();
-      avisa({ tipus: "avis", accio: accepta ? "acceptat" : "rebutjat", cmp });
-      return true;
-    };
+    const ombra = (host) => host.shadowRoot || (host.wrappedJSObject && host.wrappedJSObject.shadowRoot);
     const busca = (arrel) => {
-      for (const [nom, a, r] of CMP) {
-        const sel = accepta ? a : r;
-        if (!sel) continue;
-        const el = arrel.querySelector(sel);
-        if (visible(el)) return clica(el, nom);
-      }
-      // Usercentrics viu dins d'una «shadow root».
-      for (const host of arrel.querySelectorAll("#usercentrics-root, #usercentrics-cmp-ui, aside#usercentrics-cmp-ui")) {
-        const sr = host.shadowRoot || (host.wrappedJSObject && host.wrappedJSObject.shadowRoot);
-        if (!sr) continue;
-        const el = sr.querySelector(accepta ? "[data-testid='uc-accept-all-button']" : "[data-testid='uc-deny-all-button']");
-        if (visible(el)) return clica(el, "Usercentrics");
-      }
-      // Qualsevol altre: un botó amb el text que toca, dins d'alguna cosa que parli de galetes.
-      const re = accepta ? ACCEPTAR : REBUTJAR;
-      for (const el of arrel.querySelectorAll("button, a[role='button'], [role='button'], input[type='button'], input[type='submit']")) {
-        const text = (el.innerText || el.value || el.getAttribute("aria-label") || "").trim().replace(/\s+/g, " ");
-        if (!text || text.length > 40 || !re.test(text) || !visible(el)) continue;
-        let pare = el, parla = false;
-        for (let i = 0; i < 8 && pare; i++, pare = pare.parentElement) {
-          if (/cookie|galet|consent|privacitat|privacidad|privacy/i.test((pare.id || "") + " " + (pare.className || "") + " " + (pare.innerText || "").slice(0, 600))) { parla = true; break; }
-        }
-        if (parla) return clica(el, "genèric");
-      }
-      return false;
+      const b = MG.botoAvis(arrel, accepta, real, visible, ombra);
+      if (!b) return false;
+      b.el.click();
+      avisa({ tipus: "avis", accio: accepta ? "acceptat" : "rebutjat", cmp: b.nom });
+      return true;
     };
     const comenca = () => {
       let fet = false;

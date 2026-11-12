@@ -67,6 +67,75 @@ AVIS = """<!doctype html><html><head><meta charset="utf-8"><title>Avís</title><
 </div></body></html>"""
 
 
+# La revisió del 12/11/2026: la targeta gràfica (RENDERER), la densitat de pantalla, OffscreenCanvas,
+# readPixels i WebRTC (toJSON, IPv6, getStats).
+REVISIO = """<!doctype html><html><head><meta charset="utf-8"></head><body><pre id="info">...</pre><script>
+(async () => {
+  const r = {};
+  const gl = document.createElement("canvas").getContext("webgl");
+  if (gl) {
+    const ext = gl.getExtension("WEBGL_debug_renderer_info");
+    r.renderer = gl.getParameter(gl.RENDERER);
+    r.unmasked = ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : null;
+    const c = document.createElement("canvas"); c.width = 256; c.height = 256;
+    const g2 = c.getContext("webgl", { preserveDrawingBuffer: true });
+    g2.clearColor(127 / 255, 127 / 255, 127 / 255, 1); g2.clear(g2.COLOR_BUFFER_BIT);
+    const px = new Uint8Array(256 * 256 * 4);
+    g2.readPixels(0, 0, 256, 256, g2.RGBA, g2.UNSIGNED_BYTE, px);
+    let canvis = 0;
+    for (let i = 0; i < px.length; i += 4) for (let k = 0; k < 3; k++) if (px[i + k] !== 127) canvis++;
+    r.readPixels = canvis;
+  }
+  r.platform = navigator.platform;
+  r.dpr = window.devicePixelRatio;
+  const dibuixa = (x) => { x.fillStyle = "#336699"; x.fillRect(0, 0, 200, 100); x.fillStyle = "#ffcc00"; x.fillRect(20, 20, 60, 40); };
+  const hash = (d) => { let h = 2166136261; for (let i = 0; i < d.length; i++) { h ^= d[i]; h = Math.imul(h, 16777619); } return h >>> 0; };
+  const cv = document.createElement("canvas"); cv.width = 200; cv.height = 100;
+  const x1 = cv.getContext("2d"); dibuixa(x1);
+  r.canvas = hash(x1.getImageData(0, 0, 200, 100).data);
+  if (typeof OffscreenCanvas === "function") {
+    const oc = new OffscreenCanvas(200, 100); const x2 = oc.getContext("2d"); dibuixa(x2);
+    r.offscreen = hash(x2.getImageData(0, 0, 200, 100).data);
+    // El que no hauria de veure mai: la imatge sense soroll (es dibuixa a mà, píxel a píxel).
+    const net = new Uint8ClampedArray(200 * 100 * 4);
+    for (let y = 0; y < 100; y++) for (let xx = 0; xx < 200; xx++) {
+      const i = (y * 200 + xx) * 4, dins = xx >= 20 && xx < 80 && y >= 20 && y < 60;
+      net[i] = dins ? 255 : 0x33; net[i + 1] = dins ? 0xcc : 0x66; net[i + 2] = dins ? 0 : 0x99; net[i + 3] = 255;
+    }
+    r.net = hash(net);
+  }
+  try {
+    const c4 = new RTCIceCandidate({ candidate: "candidate:1 1 udp 2122260223 203.0.113.7 54321 typ srflx raddr 192.168.1.5 rport 9", sdpMid: "0" });
+    const c6 = new RTCIceCandidate({ candidate: "candidate:2 1 udp 2122260223 2001:db8::7 54321 typ srflx", sdpMid: "0" });
+    r.candidat = c4.candidate;
+    r.json = JSON.stringify(c4.toJSON());
+    r.ipv6 = c6.candidate;
+    const pc = new RTCPeerConnection();
+    const st = await pc.getStats();
+    r.stats = typeof st.forEach === "function";
+    pc.close();
+  } catch (e) { r.webrtcError = String(e); }
+  document.getElementById("info").textContent = JSON.stringify(r);
+})();
+</script></body></html>"""
+
+# Un avís de galetes de debò (s'ha de clicar) i un formulari amb un «Acceptar» (no s'ha de tocar mai).
+AVIS_FORMULARI = """<!doctype html><html><head><meta charset="utf-8"></head><body>
+<p id="estat1">no</p><p id="estat2">no</p>
+<div class="condicions">Accepta les condicions del servei i les galetes per crear el compte.
+  <form onsubmit="return false"><input type="email" name="correu" value="a@b.c">
+  <button onclick="document.getElementById('estat1').textContent='clicat'; return false">Acceptar</button></form></div>
+<div class="banner-galetes" style="position:fixed;bottom:0;left:0;right:0;background:#eee;padding:20px">Fem servir galetes.
+  <button onclick="document.getElementById('estat2').textContent='clicat'; this.parentNode.remove()">D'acord</button></div>
+</body></html>"""
+
+# Un anunci (un marc d'un altre web) amb un camp de contrasenya: no ha de treure la disfressa al diari.
+MARC_ANUNCI = """<!doctype html><html><head><meta charset="utf-8"></head><body><h1>Premsa</h1>
+<iframe src="http://amagat.test:8765/entrada" width="400" height="200"></iframe><pre id="info">...</pre>
+<script>document.getElementById('info').textContent = JSON.stringify({carrega: (sessionStorage.n = (Number(sessionStorage.n) || 0) + 1)});</script>
+</body></html>"""
+
+
 ENTRADA = """<!doctype html><html><head><meta charset="utf-8"><title>Entrada</title></head><body>
 <h1>Entra al teu compte</h1>
 <form><input name="usuari"> <input type="password" name="contrasenya"> <button>Entra</button></form>
@@ -200,6 +269,12 @@ class Gestor(BaseHTTPRequestHandler):
                                          "pref=1; Max-Age=33696000; Path=/"])
         elif u.path == "/entrada":
             self._envia(ENTRADA)
+        elif u.path == "/revisio":
+            self._envia(REVISIO)
+        elif u.path == "/avis-formulari":
+            self._envia(AVIS_FORMULARI)
+        elif u.path == "/marc-anunci":
+            self._envia(MARC_ANUNCI)
         elif u.path == "/zona":
             self._envia(ZONA)
         elif u.path == "/marcs":
