@@ -418,8 +418,8 @@ def main():
         comprova("datr (contra els comptes falsos) a la mateixa xarxa, tal qual", datr and datr[0]["value"] == "DATRREAL123",
                  datr and datr[0]["value"])
 
-        # ---- 12. L'hàmster ----
-        print("\n12. «Menja-te-les totes ara»: l'hàmster")
+        # ---- 12. El mico ----
+        print("\n12. «Menja-te-les totes ara»: el mico")
         simple("http://diari.test:8765/simple")
         m.js("document.body.dataset.abans = '1'; return 1;")
         diari = m.ordre("WebDriver:GetWindowHandle")
@@ -441,10 +441,12 @@ def main():
                 vist = True
                 break
             time.sleep(0.1)
-        comprova("surt l'hàmster", vist, resp)
-        time.sleep(1.6)
+        comprova("surt el mico", vist, resp)
+        time.sleep(0.45)
+        (CAPTURES / "monstre-galetes.png").write_bytes(base64.b64decode(m.captura()))
+        time.sleep(0.9)
         (CAPTURES / "monstre.png").write_bytes(base64.b64decode(m.captura()))
-        time.sleep(3.2)
+        time.sleep(3.6)
         (CAPTURES / "monstre-bombolla.png").write_bytes(base64.b64decode(m.captura()))
         recarregada = False
         for _ in range(40):
@@ -455,7 +457,7 @@ def main():
                     break
             except Exception:
                 pass
-        comprova("quan marxa, la pàgina es torna a carregar (i l'hàmster ja no hi és)", recarregada)
+        comprova("quan marxa, la pàgina es torna a carregar (i el mico ja no hi és)", recarregada)
 
         # ---- 13. Un web que la disfressa fa tornar boig ----
         print("\n13. Un web que es torna a carregar sense parar")

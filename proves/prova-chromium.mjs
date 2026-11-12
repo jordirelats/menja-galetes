@@ -249,23 +249,25 @@ try {
   const uid = gs.find((g) => g.name === "UID" && g.domain === "diari.test");
   comprova("UID (un nom genèric) no es toca", uid && uid.value === "uid-real-1", uid && uid.value);
 
-  // ---- 12. L'hàmster ----
-  console.log("\n12. «Menja-te-les totes ara»: l'hàmster");
+  // ---- 12. El mico ----
+  console.log("\n12. «Menja-te-les totes ara»: el mico");
   await ves("http://diari.test:8765/simple", 1200);
   await aPagina("document.body.dataset.abans = '1'");
   const tab12 = await alFons(`chrome.tabs.query({}).then(ts => ts.find(t => (t.url || "").includes("diari.test")).id)`);
   const resp12 = await alFons(`tracta({tipus: "menjaAra", lloc: "diari.test", tabId: ${tab12}}, {}).then(JSON.stringify)`);
   let vist = false;
   for (let i = 0; i < 30 && !vist; i++) { vist = await aPagina("!!document.getElementById('menja-galetes-monstre')"); if (!vist) await dorm(100); }
-  comprova("surt l'hàmster", vist, resp12);
+  comprova("surt el mico", vist, resp12);
   await dorm(1600);
   writeFileSync(join(AQUI, "captures", "monstre-vivaldi.png"), Buffer.from((await c.envia("Page.captureScreenshot", { format: "png" }, pag)).data, "base64"));
+  await dorm(4800);
+  writeFileSync(join(AQUI, "captures", "monstre-bombolla-vivaldi.png"), Buffer.from((await c.envia("Page.captureScreenshot", { format: "png" }, pag)).data, "base64"));
   let recarregada = false;
   for (let i = 0; i < 50 && !recarregada; i++) {
     await dorm(250);
     try { recarregada = await aPagina("!!document.body && !document.body.dataset.abans && !document.getElementById('menja-galetes-monstre')"); } catch (e) { /* recarregant */ }
   }
-  comprova("quan marxa, la pàgina es torna a carregar (i l'hàmster ja no hi és)", recarregada);
+  comprova("quan marxa, la pàgina es torna a carregar (i el mico ja no hi és)", recarregada);
 
   // ---- 13. Un web que la disfressa fa tornar boig ----
   console.log("\n13. Un web que es torna a carregar sense parar");

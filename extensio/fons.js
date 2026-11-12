@@ -666,24 +666,31 @@ browser.alarms.onAlarm.addListener(async (a) => {
   if (a.name === "resum") { await avisaResum(); browser.alarms.create("resum", { when: MG.properDilluns() }); }
 });
 
-/* ---- «Menja-te-les totes ara»: l'hàmster i la recàrrega ---- */
+/* ---- «Menja-te-les totes ara»: el mico i la recàrrega ---- */
 
-// L'hàmster travessa la pàgina (lib/monstre.js). Si la pàgina no ho permet (about:, la botiga de
+// Els noms de les galetes de seguiment que s'ha menjat en aquesta pestanya (el mico els porta
+// escrits a les galetes). Només lletres, xifres i _.-, i com a molt cinc.
+function nomsMenjades(p) {
+  const noms = (p && p.galetes ? p.galetes : []).map((g) => String(g.nom || "").replace(/[^\w.-]/g, "")).filter(Boolean);
+  return [...new Set(noms)].slice(0, 5);
+}
+
+// El mico travessa la pàgina (lib/monstre.js). Si la pàgina no ho permet (about:, la botiga de
 // Mozilla, un PDF…) o triga massa, es passa de llarg.
-async function monstre(tabId, quantes) {
+async function monstre(tabId, noms) {
   try {
     await browser.tabs.executeScript(tabId, { file: "/lib/monstre.js", frameId: 0 });
     await Promise.race([
-      browser.tabs.executeScript(tabId, { code: `MG_monstre(${quantes | 0})`, frameId: 0 }),
-      new Promise((r) => setTimeout(r, 9000)),
+      browser.tabs.executeScript(tabId, { code: `MG_monstre(${JSON.stringify(noms || [])})`, frameId: 0 }),
+      new Promise((r) => setTimeout(r, 11000)),
     ]);
   } catch (e) { /* res */ }
 }
 
-// Quan l'hàmster ha marxat, es torna a menjar el que el web hagi posat mentrestant i es torna a
+// Quan el mico ha marxat, es torna a menjar el que el web hagi posat mentrestant i es torna a
 // carregar la pàgina amb la disfressa nova.
-async function acabaDeMenjar(tabId, lloc, quantes) {
-  await monstre(tabId, quantes);
+async function acabaDeMenjar(tabId, lloc, noms) {
+  await monstre(tabId, noms);
   await menja(lloc, { obertes: true, protegides: true });
   const p = pestanyes.get(tabId);
   if (p) { p.galetes = []; p.funcionament = new Set(); p.avis = null; }
@@ -741,9 +748,10 @@ browser.runtime.onMessage.addListener(async (m, sender) => {
     disfresses.delete(m.lloc);
     const n = await menja(m.lloc, { obertes: true, protegides: true });
     const p = pestanyes.get(m.tabId);
+    const noms = nomsMenjades(p);
     if (p) { p.galetes = []; p.funcionament = new Set(); p.avis = null; }
     await registra();
-    if (m.tabId >= 0) acabaDeMenjar(m.tabId, m.lloc, n);   // sense esperar: la finestreta es tanca i surt l'hàmster
+    if (m.tabId >= 0) acabaDeMenjar(m.tabId, m.lloc, noms);   // sense esperar: la finestreta es tanca i surt el mico
     return { menjades: n };
   }
   if (m.tipus === "confia") {

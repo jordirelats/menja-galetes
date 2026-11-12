@@ -44,7 +44,7 @@ La disfressa arriba també als llocs on els webs més espavilats van a buscar el
 
 **Si la IP canvia de país** (per exemple, si encens una VPN), es posa una disfressa del país nou i se les menja totes, perquè el web no pugui lligar l'abans i el després.
 
-**«Menja-te-les totes ara».** Des de la finestreta, se les menja totes de cop i es posa una disfressa nova per a aquell web. Mentrestant, un hàmster travessa la pàgina menjant-se una filera de galetes. Si el sistema demana menys moviment, només surt la bombolla.
+**«Menja-te-les totes ara».** Des de la finestreta, se les menja totes de cop i es posa una disfressa nova per a aquell web. Mentrestant, un mico entra saltant a la pàgina, agafa les galetes amb les mans (porten el nom de les galetes de seguiment que s'ha menjat d'aquell web) i se les menja a mossegades: en salten trossos, li cauen molles de la boca i es queden per terra. N'atrapa una al vol, diu «Tinc gana… no n'hi ha més?» i se'n va. Si el sistema demana menys moviment, només surt la bombolla.
 
 ## Què no fa
 
@@ -100,7 +100,7 @@ Al Chromium, l'extensió fa el mateix que al Firefox, amb aquestes diferències:
 - `extensio/fons.js`: reescriu les `Set-Cookie` abans que es desin (`webRequest` bloquejant, que el Firefox manté a Manifest V2), posa la disfressa a les capçaleres i se les menja quan tanques la pestanya.
 - `extensio/lib/pagina.js`: el codi que va a cada pàgina a `document_start`, abans que cap script del web. Toca els objectes de la pàgina amb les Xray del Firefox (`wrappedJSObject`, `exportFunction`).
 - `extensio/lib/comu.js`: les peces comunes (llocs, galetes de seguiment, països i disfresses).
-- `extensio/lib/monstre.js`: l'hàmster. Es posa a la pàgina només quan cliques «Menja-te-les totes ara», dins d'una *shadow root* tancada i amb `element.animate()`, perquè ni els estils ni la CSP del web el puguin tocar.
+- `extensio/lib/monstre.js`: el mico. Es posa a la pàgina només quan cliques «Menja-te-les totes ara», dins d'una *shadow root* tancada i amb `element.animate()`, perquè ni els estils ni la CSP del web el puguin tocar.
 - `chromium/`: la versió per al Vivaldi, el Chrome i el Brave (Manifest V3). `fons.js` és un *service worker* que fa servir `declarativeNetRequest`, `userScripts` i `cookies`; `pagina.js` és el codi de pàgina (al món MAIN); `contingut.js` respon els avisos i detecta les pàgines amb contrasenya. La finestreta, les opcions i `lib/comu.js` són els mateixos del Firefox: `eines/construeix-chromium.py` ho ajunta tot.
 - `proves/prova.py`: obre un Firefox a part, sense finestra, amb un perfil temporal, i fa 132 proves contra un servidor local. Només fa servir Python i el protocol Marionette del Firefox: `python3 proves/prova.py`.
 - `proves/prova-chromium.mjs`: el mateix amb un Vivaldi a part (66 proves), controlat amb el protocol DevTools des del Node: `node proves/prova-chromium.mjs`. Amb `NAVEGADOR=chrome`, les fa amb el Google Chrome (que, des de la versió 137, s'hi carrega amb l'ordre `Extensions.loadUnpacked` del protocol).
