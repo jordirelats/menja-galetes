@@ -613,7 +613,7 @@ function nomsMenjades(p) {
   return [...new Set(noms)].slice(0, 5);
 }
 
-// El personatge triat (el mico o l'ós rentador) travessa la pàgina (lib/monstre.js, al món
+// El personatge triat (el mico, l'ós rentador o el bufó) travessa la pàgina (lib/monstre.js, al món
 // aïllat). Si la pàgina no ho permet (chrome://, la botiga, un PDF…) o triga massa, es passa de llarg.
 async function monstre(tabId, noms) {
   const target = { tabId, frameIds: [0] };

@@ -24,7 +24,7 @@ EXT = AQUI.parent / "extensio"
 CAPTURES = AQUI / "captures"
 ID = "menja-galetes@jordirelats"
 PORT_M = 28290
-WEB = "http://localhost:8765"
+WEB = "http://localhost:8775"
 
 resultats = []
 
@@ -336,7 +336,7 @@ def main():
 
         # ---- 9. Pàgines amb contrasenya ----
         print("\n9. Una pàgina amb contrasenya va sense disfressa")
-        m.ves("http://127.0.0.1:8765/entrada")
+        m.ves("http://127.0.0.1:8775/entrada")
         info5 = {}
         for _ in range(30):
             time.sleep(0.3)
@@ -357,14 +357,14 @@ def main():
                 if not recarrega or inf.get("carrega", 0) >= 2:
                     break
             return inf
-        a = simple("http://diari.test:8765/simple?marc=localhost")
+        a = simple("http://diari.test:8775/simple?marc=localhost")
         time.sleep(1)
         comprova("un diari qualsevol: disfressat", "Linux" not in a.get("userAgent", "Linux"), a.get("userAgent"))
         gs = galetes(m)
         ide = [g for g in gs if g["name"] == "IDE" and g["host"] == "localhost" and "diari.test" in (g["partition"] or "")]
         comprova("un web de confiança dins d'un altre: les seves galetes, menjades", ide and ide[0]["value"] != "AHWqTUmREALREAL123",
                  ide and f"{ide[0]['value']} · {ide[0]['partition']}")
-        b = simple("http://www.bancprova.test:8765/simple?marc=1")
+        b = simple("http://www.bancprova.test:8775/simple?marc=1")
         time.sleep(1)
         comprova("un banc pel nom: navegador de debò", "Linux" in b.get("userAgent", ""), b.get("userAgent"))
         comprova("la galeta de sessió del banc, tal qual", "sessio=banc123" in b.get("cookie", ""), b.get("cookie"))
@@ -373,13 +373,13 @@ def main():
         ide = [g for g in gs if g["name"] == "IDE" and "bancprova" in (g["partition"] or "")]
         comprova("les galetes de tercers al banc, menjades", ide and ide[0]["value"] != "AHWqTUmREALREAL123",
                  ide and f"{ide[0]['value']} · {ide[0]['partition']}")
-        c = simple("http://www.prova.gob.es:8765/simple")
+        c = simple("http://www.prova.gob.es:8775/simple")
         comprova("un govern (.gob.es): navegador de debò", "Linux" in c.get("userAgent", ""), c.get("userAgent"))
-        simple("http://botiga.test:8765/antifrau")
+        simple("http://botiga.test:8775/antifrau")
         time.sleep(1.5)                       # la pàgina es torna a carregar sola
         e = info_pagina(m)
         comprova("una botiga amb sistema contra el frau: navegador de debò", "Linux" in e.get("userAgent", ""), e.get("userAgent"))
-        x = simple("http://www.instagram.com:8765/simple?marc=1")
+        x = simple("http://www.instagram.com:8775/simple?marc=1")
         time.sleep(1)
         comprova("una xarxa social: navegador de debò", "Linux" in x.get("userAgent", ""), x.get("userAgent"))
         comprova("la sessió de la xarxa, tal qual", "sessio=banc123" in x.get("cookie", ""), x.get("cookie"))
@@ -390,13 +390,13 @@ def main():
                  ide and f"{ide[0]['value']} · {ide[0]['partition']}")
         m.ves(f"moz-extension://{uuid}/opcions/opcions.html")
         m.js_async("const f = arguments[arguments.length-1]; (window.wrappedJSObject||window).browser.storage.local.set({provaOrganitzacio: {'empresa.test': 'Banco de Prova S.A.'}}).then(() => f('ok'))")
-        g = simple("http://empresa.test:8765/simple")
+        g = simple("http://empresa.test:8775/simple")
         comprova("certificat d'un banc: navegador de debò ja a la primera", "Linux" in g.get("userAgent", "") and g.get("carrega") == 1,
                  f"{g.get('userAgent')} · càrregues: {g.get('carrega')}")
 
         # ---- 11. Les correccions de la revisió del 10/11/2026 ----
         print("\n11. Les correccions de la revisió")
-        m.ves("http://revista.test:8765/marc-entrada")
+        m.ves("http://revista.test:8775/marc-entrada")
         time.sleep(4)
         r = info_pagina(m)
         comprova("marc d'un altre web amb contrasenya i sense «referrer»: cap bucle de recàrregues", r.get("carrega", 99) <= 2,
@@ -405,8 +405,8 @@ def main():
         ra = json.loads(m.js_async("const f = arguments[arguments.length-1]; (window.wrappedJSObject||window).browser.storage.local"
                                    ".get('realAuto').then(s => f(JSON.stringify(s.realAuto || [])))"))
         comprova("i a la llista automàtica no hi ha cap «atzar:»", not any("atzar" in x for x in ra), ", ".join(ra))
-        simple("http://diari.test:8765/simple?plataforma=1")
-        m.js("location.href = 'http://amagat.test:8765/res'; return 1;")
+        simple("http://diari.test:8775/simple?plataforma=1")
+        m.js("location.href = 'http://amagat.test:8775/res'; return 1;")
         time.sleep(4.5)                                # retardMenjar és 2 s a les proves
         gs = galetes(m)
         ses = [g for g in gs if g["name"] == "sessio" and "diari.test" in g["host"]]
@@ -414,7 +414,7 @@ def main():
                  ses and ses[0]["value"])
         uid = [g for g in gs if g["name"] == "UID" and "diari.test" in g["host"]]
         comprova("UID (un nom genèric) no es toca", uid and uid[0]["value"] == "uid-real-1", uid and uid[0]["value"])
-        simple("http://www.instagram.com:8765/simple?plataforma=1")
+        simple("http://www.instagram.com:8775/simple?plataforma=1")
         gs = galetes(m)
         datr = [g for g in gs if g["name"] == "datr" and "instagram" in g["host"]]
         comprova("datr (contra els comptes falsos) a la mateixa xarxa, tal qual", datr and datr[0]["value"] == "DATRREAL123",
@@ -429,15 +429,15 @@ def main():
           const b = (window.wrappedJSObject || window).browser;
           const ids = [...document.querySelectorAll('.personatge')].map((e) => e.dataset.id);
           const abans = (document.querySelector('.personatge.on') || {}).dataset;
-          document.querySelector(".personatge[data-id='os']").click();
+          document.querySelector(".personatge[data-id='bufo']").click();
           document.getElementById('mira').click();
           setTimeout(() => b.storage.local.get('config').then((s) => fet(JSON.stringify({
             ids, abans: abans && abans.id, desat: s.config.personatge, on: document.querySelector('.personatge.on').dataset.id,
             mira: !!document.getElementById('menja-galetes-monstre') }))), 500);"""))
-        comprova("a les opcions es tria qui se les menja: el mico (per defecte) o l'ós rentador",
-                 tria["ids"] == ["mico", "os"] and tria["abans"] == "mico" and tria["desat"] == "os" and tria["on"] == "os", tria)
+        comprova("a les opcions es tria qui se les menja: el mico (per defecte), l'ós rentador o el bufó",
+                 tria["ids"] == ["mico", "os", "bufo"] and tria["abans"] == "mico" and tria["desat"] == "bufo" and tria["on"] == "bufo", tria)
         comprova("«Mira'l» el fa sortir a les mateixes opcions", tria["mira"], tria)
-        simple("http://diari.test:8765/simple")
+        simple("http://diari.test:8775/simple")
         m.js("document.body.dataset.abans = '1'; return 1;")
         diari = m.ordre("WebDriver:GetWindowHandle")
         diari = diari["value"] if isinstance(diari, dict) else diari
@@ -458,7 +458,7 @@ def main():
                 vist = True
                 break
             time.sleep(0.1)
-        comprova("surt el personatge triat (l'ós rentador)", vist, resp)
+        comprova("surt el personatge triat (el bufó)", vist, resp)
         time.sleep(0.45)
         (CAPTURES / "monstre-galetes.png").write_bytes(base64.b64decode(m.captura()))
         time.sleep(0.9)
@@ -478,7 +478,7 @@ def main():
 
         # ---- 13. Un web que la disfressa fa tornar boig ----
         print("\n13. Un web que es torna a carregar sense parar")
-        m.ves("http://bucle.test:8765/bucle")
+        m.ves("http://bucle.test:8775/bucle")
         b = {}
         for _ in range(30):
             time.sleep(0.4)
@@ -508,24 +508,24 @@ def main():
             m.canvia(principal)
             return json.loads(r)
 
-        g = simple("http://diari.test:8765/gpc")
+        g = simple("http://diari.test:8775/gpc")
         comprova("GPC: la pàgina veu navigator.globalPrivacyControl", g.get("gpc") is True, g)
-        m.ves("http://diari.test:8765/eco")
+        m.ves("http://diari.test:8775/eco")
         eco14 = json.loads(m.js("return document.body.textContent;"))
         comprova("GPC: el web rep Sec-GPC: 1", eco14.get("Sec-GPC") == "1", eco14.get("Sec-GPC"))
-        gr = simple("http://diari.test:8765/gravador")
+        gr = simple("http://diari.test:8775/gravador")
         for _ in range(10):
             if gr.get("control") is not None:
                 break
             time.sleep(0.3)
             gr = info_pagina(m)
         comprova("el gravador de sessió (Hotjar) no s'ha carregat, i l'script normal sí", gr.get("gravador") is False and gr.get("control") is True, gr)
-        m.ves("http://diari.test:8765/correu")
+        m.ves("http://diari.test:8775/correu")
         cor = info_pagina(m)
         comprova("l'espia del correu (Mailchimp) no s'ha carregat, i la imatge normal sí", cor.get("espia") == "error" and cor.get("normal") == "load", cor)
         m.pestanya_nova()
         m.ordre("WebDriver:SetWindowRect", {"width": 440, "height": 2400})
-        m.ves(f"moz-extension://{uuid}/finestreta/finestreta.html?web=http://diari.test:8765/correu")
+        m.ves(f"moz-extension://{uuid}/finestreta/finestreta.html?web=http://diari.test:8775/correu")
         time.sleep(1.2)
         (CAPTURES / "finestreta-noves.png").write_bytes(base64.b64decode(m.captura_element("body")))
         text14 = m.js("return document.body.innerText;")
@@ -539,12 +539,12 @@ def main():
         comprova("la finestreta diu que el web et volia gravar (Hotjar)", "Aquest web et volia gravar" in text14 and "Hotjar" in text14)
         comprova("i quants espies de correu s'ha menjat", "de correu menjat" in text14 and "Mailchimp" in text14)
         comprova("i el resum de la setmana", "aquesta setmana" in text14.lower() and "m'he menjat" in text14.lower())
-        m.ves("http://l.facebook.com:8765/l.php?u=http%3A%2F%2Fdiari.test%3A8765%2Fsimple%3Fid%3D7%26utm_source%3Dfb&h=AT0x")
+        m.ves("http://l.facebook.com:8775/l.php?u=http%3A%2F%2Fdiari.test%3A8775%2Fsimple%3Fid%3D7%26utm_source%3Dfb&h=AT0x")
         time.sleep(1)
         url14 = m.js("return location.href;")
-        comprova("rebot de Facebook: directament al web, sense el comptador ni utm_", url14 == "http://diari.test:8765/simple?id=7", url14)
-        simple("http://diari.test:8765/simple")
-        v14 = en_una_altra('b.cookies.set({url: "http://vell.test:8765/", name: "antiga", value: "1", expirationDate: Date.now() / 1000 + 86400 * 365})'
+        comprova("rebot de Facebook: directament al web, sense el comptador ni utm_", url14 == "http://diari.test:8775/simple?id=7", url14)
+        simple("http://diari.test:8775/simple")
+        v14 = en_una_altra('b.cookies.set({url: "http://vell.test:8775/", name: "antiga", value: "1", expirationDate: Date.now() / 1000 + 86400 * 365})'
                            '.then(() => b.storage.local.get("protegides"))'
                            '.then((s) => b.storage.local.set({protegides: [...(s.protegides || []), "vell.test|antiga", "diari.test|sessio"]}))'
                            '.then(() => b.runtime.sendMessage({tipus: "menjaVelles", ara: Date.now() + 40 * 864e5}))')
@@ -557,12 +557,12 @@ def main():
                  rs.get("galetes", 0) > 0 and rs.get("gravadors", 0) >= 1 and rs.get("espies", 0) >= 1 and rs.get("rebots", 0) >= 1
                  and rs.get("empreses", {}).get("Google", 0) > 0, rs)
         en_una_altra('b.runtime.sendMessage({tipus: "senseDisfressa", lloc: "diari.test", minuts: 1})')
-        t14 = simple("http://diari.test:8765/simple")
+        t14 = simple("http://diari.test:8775/simple")
         comprova("«Compara-la sense disfressa»: el web va sense disfressa una estona", "Linux" in t14.get("userAgent", ""), t14.get("userAgent"))
 
         # ---- 15. La revisió a fons del 12/11/2026 ----
         print("\n15. La revisió a fons del 12/11/2026")
-        m.ves("http://premsa.test:8765/revisio")
+        m.ves("http://premsa.test:8775/revisio")
         rv = info_pagina(m)
         rend = str(rv.get("renderer"))
         comprova("WebGL: RENDERER diu la gràfica de la disfressa (al Firefox, per aquí sortia la de debò)",
@@ -579,18 +579,18 @@ def main():
                  f"{rv.get('candidat')} · {rv.get('json')} · {rv.get('webrtcError')}")
         comprova("WebRTC: les IPv6 també", "2001:db8" not in str(rv.get("ipv6")) and rv.get("ipv6"), rv.get("ipv6"))
         comprova("WebRTC: getStats() continua funcionant", rv.get("stats") is True, rv.get("webrtcError"))
-        m.ves("http://premsa.test:8765/avis-formulari")
+        m.ves("http://premsa.test:8775/avis-formulari")
         time.sleep(2.5)
         e1 = m.js("return document.getElementById('estat1').textContent;")
         e2 = m.js("return document.getElementById('estat2').textContent;")
         comprova("avisos: un «Acceptar» dins d'un formulari no es clica mai", e1 == "no", e1)
         comprova("i el «D'acord» d'un avís de galetes, sí", e2 == "clicat", e2)
-        m.ves("http://premsa.test:8765/marc-anunci")
+        m.ves("http://premsa.test:8775/marc-anunci")
         time.sleep(3)
         ra15 = en_una_altra('b.storage.local.get("realAuto").then((s) => s.realAuto || [])') or []
         comprova("un anunci (un marc d'un altre web) amb contrasenya no treu la disfressa al web", "premsa.test" not in ra15, ra15)
         # Contenidors: la galeta falsa d'una pestanya normal no es copia a un contenidor.
-        m.ves("http://premsa.test:8765/simple")
+        m.ves("http://premsa.test:8775/simple")
         time.sleep(0.5)
         m.context("chrome")
         uc = m.js("""
@@ -602,7 +602,7 @@ def main():
           const ContextualIdentityService = CIS;
           const id = ContextualIdentityService.create("Prova", "fingerprint", "blue").userContextId;
           const w = Services.wm.getMostRecentWindow("navigator:browser");
-          w.__mgPestanya = w.gBrowser.addTab("http://premsa.test:8765/simple",
+          w.__mgPestanya = w.gBrowser.addTab("http://premsa.test:8775/simple",
             { userContextId: id, triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal() });
           return id;""")
         time.sleep(2.5)

@@ -23,7 +23,7 @@ MG.PER_DEFECTE = {
   disfressa: "web",          // "web" (una per a cada web) | "dia" (una al dia per a tots)
   pais: "ip",                // "ip" (el de la IP) | "qualsevol"
   canviPais: true,           // si la IP canvia de país: disfressa nova i se les menja totes
-  personatge: "mico",        // qui se les menja a «Menja-te-les totes ara» (lib/monstre.js): "mico" | "os"
+  personatge: "mico",        // qui se les menja a «Menja-te-les totes ara» (lib/monstre.js): "mico" | "os" | "bufo"
   falseja: {
     navegador: true, ubicacio: true, idioma: true, pantalla: true,
     empremta: true, galetes: true, ipScripts: true, ipCapcaleres: true,

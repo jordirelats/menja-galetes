@@ -748,7 +748,7 @@ function nomsMenjades(p) {
   return [...new Set(noms)].slice(0, 5);
 }
 
-// El personatge triat (el mico o l'ós rentador) travessa la pàgina (lib/monstre.js). Si la pàgina
+// El personatge triat (el mico, l'ós rentador o el bufó) travessa la pàgina (lib/monstre.js). Si la pàgina
 // no ho permet (about:, la botiga de Mozilla, un PDF…) o triga massa, es passa de llarg.
 async function monstre(tabId, noms) {
   const personatge = /^[a-z]{1,20}$/.test(cfg.personatge) ? cfg.personatge : "mico";

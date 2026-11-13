@@ -15,7 +15,7 @@ import { CDP, dorm } from "./cdp.mjs";
 
 const AQUI = dirname(fileURLToPath(import.meta.url));
 const EXT = join(AQUI, "..", "construit", "menja-galetes-chromium");
-const WEB = "http://localhost:8765";
+const WEB = "http://localhost:8775";
 const PORT = 9336;
 const resultats = [];
 function comprova(nom, ok, detall = "") {
@@ -56,7 +56,10 @@ try {
   await alFons(`chrome.storage.local.get('config').then(s => chrome.storage.local.set({config: Object.assign(s.config || {}, {urlPais: "${WEB}/pais"})}))`);
 
   console.log("\n1. Sense el permís");
-  comprova("el fons sap que falta el permís", (await alFons("llest.then(() => scriptsUsuari)")) === false);
+  // En arrencar, scriptsUsuari és null fins que el fons ha provat de registrar el codi de pàgina.
+  let scripts = null;
+  for (let i = 0; i < 40 && scripts === null; i++) { scripts = await alFons("llest.then(() => registrant).then(() => scriptsUsuari)"); if (scripts === null) await dorm(250); }
+  comprova("el fons sap que falta el permís", scripts === false, JSON.stringify(scripts));
   const URL_BENV = `chrome-extension://${id}/benvinguda/benvinguda.html`;
   let benv;
   for (let i = 0; i < 20 && !benv; i++) { await dorm(300); benv = (await c.objectius()).find((t) => t.type === "page" && t.url === URL_BENV); }

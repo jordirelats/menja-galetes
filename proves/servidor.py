@@ -1,4 +1,4 @@
-"""Servidor de proves local (http://localhost:8765 i, com a «tercer», http://127.0.0.1:8765).
+"""Servidor de proves local (http://localhost:8775 i, com a «tercer», http://127.0.0.1:8775).
 
 /primera  posa _ga per capçalera i _fbp per JavaScript, com un web de debò, i
           apunta a #info el que la pàgina veu del navegador.
@@ -31,7 +31,7 @@ ESTAT = {"pais": "ES"}
 
 PRIMERA = """<!doctype html><html><head><meta charset="utf-8"><title>Primera</title></head><body>
 <h1>Diari de prova</h1>
-<iframe src="http://127.0.0.1:8765/tercer" width="300" height="60"></iframe>
+<iframe src="http://127.0.0.1:8775/tercer" width="300" height="60"></iframe>
 <pre id="info">...</pre>
 <script>
 document.cookie = "_fbp=fb.1.1700000000000.222222222; max-age=7776000; path=/";
@@ -131,7 +131,7 @@ AVIS_FORMULARI = """<!doctype html><html><head><meta charset="utf-8"></head><bod
 
 # Un anunci (un marc d'un altre web) amb un camp de contrasenya: no ha de treure la disfressa al diari.
 MARC_ANUNCI = """<!doctype html><html><head><meta charset="utf-8"></head><body><h1>Premsa</h1>
-<iframe src="http://amagat.test:8765/entrada" width="400" height="200"></iframe><pre id="info">...</pre>
+<iframe src="http://amagat.test:8775/entrada" width="400" height="200"></iframe><pre id="info">...</pre>
 <script>document.getElementById('info').textContent = JSON.stringify({carrega: (sessionStorage.n = (Number(sessionStorage.n) || 0) + 1)});</script>
 </body></html>"""
 
@@ -217,7 +217,7 @@ document.getElementById('info').textContent = JSON.stringify({gpc: navigator.glo
 </script></body></html>"""
 
 GRAVADOR = """<!doctype html><html><head><meta charset="utf-8"></head><body><pre id="info">...</pre>
-<script src="http://static.hotjar.com:8765/c/hotjar.js"></script>
+<script src="http://static.hotjar.com:8775/c/hotjar.js"></script>
 <script src="/control.js"></script>
 <script>setTimeout(() => document.getElementById('info').textContent =
   JSON.stringify({gravador: !!window.__gravador, control: !!window.__control}), 1500);</script>
@@ -225,8 +225,8 @@ GRAVADOR = """<!doctype html><html><head><meta charset="utf-8"></head><body><pre
 
 CORREU = """<!doctype html><html><head><meta charset="utf-8"></head><body><pre id="info">...</pre>
 <p>Ofertes de la setmana</p>
-<script src="http://static.hotjar.com:8765/c/hotjar.js"></script>
-<img id="espia" width="1" height="1" src="http://us1.list-manage.com:8765/track/open.php?u=1&amp;id=2&amp;e=3">
+<script src="http://static.hotjar.com:8775/c/hotjar.js"></script>
+<img id="espia" width="1" height="1" src="http://us1.list-manage.com:8775/track/open.php?u=1&amp;id=2&amp;e=3">
 <img id="normal" width="1" height="1" src="/img.gif">
 <script>const r = {};
 for (const id of ["espia", "normal"]) { const i = document.getElementById(id);
@@ -286,18 +286,18 @@ class Gestor(BaseHTTPRequestHandler):
         elif u.path == "/sh.js":
             self._envia("onconnect = e => e.ports[0].postMessage(" + INFO_TREBALLADOR + ");", "text/javascript")
         elif u.path == "/antifrau":
-            self._envia(SIMPLE % '<script src="http://h.online-metrix.net:8765/fp.js"></script>')
+            self._envia(SIMPLE % '<script src="http://h.online-metrix.net:8775/fp.js"></script>')
         elif u.path == "/fp.js":
             self._envia("window.__fp = 1;", "text/javascript")
         elif u.path == "/simple":
             origen = "localhost" if q.get("marc", [""])[0] == "localhost" else "diari.test"
-            marc = f'<iframe src="http://{origen}:8765/tercer"></iframe>' if "marc" in q else ""
+            marc = f'<iframe src="http://{origen}:8775/tercer"></iframe>' if "marc" in q else ""
             extra = ["datr=DATRREAL123; Max-Age=63072000; Path=/", "UID=uid-real-1; Max-Age=63072000; Path=/"] \
                 if "plataforma" in q else []
             self._envia(SIMPLE % marc, galetes=["_ga=GA1.1.111111111.1700000000; Max-Age=63072000; Path=/",
                                                 "sessio=banc123; Max-Age=86400; Path=/", *extra])
         elif u.path == "/marc-entrada":
-            self._envia(SIMPLE % '<iframe src="http://amagat.test:8765/entrada" referrerpolicy="no-referrer"></iframe>')
+            self._envia(SIMPLE % '<iframe src="http://amagat.test:8775/entrada" referrerpolicy="no-referrer"></iframe>')
         elif u.path == "/gpc":
             self._envia(GPC)
         elif u.path == "/gravador":
@@ -333,7 +333,7 @@ class Gestor(BaseHTTPRequestHandler):
             self.send_error(404)
 
 
-def engega(port=8765):
+def engega(port=8775):
     srv = ThreadingHTTPServer(("127.0.0.1", port), Gestor)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     return srv
