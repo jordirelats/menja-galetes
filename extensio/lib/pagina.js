@@ -179,16 +179,19 @@ function MG_pagina(MG, cfg) {
 
     /* ---- 4. Pantalla i maquinari ---- */
     if (f.pantalla) {
-      const S = W.Screen.prototype;
-      posaGetter(S, "width", () => d.pantalla.w);
-      posaGetter(S, "height", () => d.pantalla.h);
-      posaGetter(S, "availWidth", () => d.pantalla.aw);
-      posaGetter(S, "availHeight", () => d.pantalla.ah);
-      posaGetter(S, "colorDepth", () => 24);
-      posaGetter(S, "pixelDepth", () => 24);
+      // Al mòbil (d.pantalla null), la pantalla i la densitat es queden les de debò.
+      if (d.pantalla) {
+        const S = W.Screen.prototype;
+        posaGetter(S, "width", () => d.pantalla.w);
+        posaGetter(S, "height", () => d.pantalla.h);
+        posaGetter(S, "availWidth", () => d.pantalla.aw);
+        posaGetter(S, "availHeight", () => d.pantalla.ah);
+        posaGetter(S, "colorDepth", () => 24);
+        posaGetter(S, "pixelDepth", () => 24);
+        // La densitat de la pantalla, la de la disfressa (un Mac és sempre 2).
+        try { Object.defineProperty(W, "devicePixelRatio", { get: fn(() => d.pantalla.dpr), configurable: true, enumerable: true }); } catch (e) { /* res */ }
+      }
       posaGetter(W.Navigator.prototype, "hardwareConcurrency", () => d.nuclis);
-      // La densitat de la pantalla, la de la disfressa (un Mac és sempre 2).
-      try { Object.defineProperty(W, "devicePixelRatio", { get: fn(() => d.pantalla.dpr), configurable: true, enumerable: true }); } catch (e) { /* res */ }
       for (const nom of ["WebGLRenderingContext", "WebGL2RenderingContext"]) {
         embolcalla(W[nom] && W[nom].prototype, "getParameter", (o) => function (pname) {
           if (pname === 0x9245) return d.gpu.vendor;     // UNMASKED_VENDOR_WEBGL

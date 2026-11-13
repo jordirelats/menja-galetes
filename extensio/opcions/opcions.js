@@ -11,6 +11,13 @@ const FALSEJA = [
   ["ipScripts", "IP que demanen els scripts", "Els scripts que et pregunten la IP (WebRTC) en reben una de falsa, que no és de ningú (100.64.x.x)"],
   ["ipCapcaleres", "IP de les capçaleres", "Una IP falsa a X-Forwarded-For, que tampoc no és de ningú, per als webs que se la creuen"],
 ];
+// Al mòbil (Firefox d'Android): la disfressa és un altre mòbil Android, i la pantalla es queda la de debò.
+const MOBIL = /Android/.test(navigator.userAgent);
+if (MOBIL) {
+  document.documentElement.classList.add("mobil");
+  FALSEJA[0] = ["navegador", "Navegador i sistema", "Al mòbil: un altre mòbil Android, amb una altra versió d'Android"];
+  FALSEJA[3] = ["pantalla", "Maquinari", "Al mòbil: la targeta gràfica i els nuclis. La pantalla es queda la de debò."];
+}
 
 // Els interruptors que són una opció de dalt de tot de la configuració.
 const INTERRUPTORS = ["canviPais", "gravadors", "espies", "rebots", "gpc", "resumAvis"];

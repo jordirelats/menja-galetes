@@ -81,6 +81,16 @@ Mentre no estigui signada per Mozilla, s'instal·la com a complement temporal (s
 
 Cal el Firefox 140 o més nou.
 
+### Al Firefox d'Android
+
+És la mateixa extensió que la del Firefox d'ordinador. Quan Mozilla la publiqui per a Android, s'instal·larà des de la seva pàgina a addons.mozilla.org, i es fa servir des del menú ⋮ → Extensions → Menja galetes. Al mòbil:
+- **La disfressa és un altre mòbil Android**, del mateix país que la IP, amb una altra versió d'Android, una altra targeta gràfica i un altre nombre de nuclis. Si fes veure que és un ordinador, el web enviaria la versió d'ordinador i la pantalla tàctil el delataria.
+- **La mida de la pantalla es queda la de debò.** Al mòbil, la pàgina fa l'ample de la pantalla, i el web veuria que no lliguen.
+- **La finestreta i les opcions ocupen tota la pantalla**, i el personatge que se les menja és més gros.
+- **No hi ha contenidors.**
+
+Al Firefox de l'iPhone no es pot: no admet extensions.
+
 ### Al Vivaldi, el Chrome i el Brave
 
 1. Munta-la: `python3 eines/construeix-chromium.py` (la deixa a `construit/menja-galetes-chromium/`).
@@ -105,8 +115,9 @@ Al Chromium, l'extensió fa el mateix que al Firefox, amb aquestes diferències:
 - `extensio/lib/comu.js`: les peces comunes (llocs, galetes de seguiment, països i disfresses).
 - `extensio/lib/monstre.js`: el mico, l'ós rentador i el bufó (`MG_personatges()`; per afegir-ne un, n'hi ha prou amb el dibuix). Es posa a la pàgina només quan cliques «Menja-te-les totes ara», dins d'una *shadow root* tancada i amb `element.animate()`, perquè ni els estils ni la CSP del web el puguin tocar.
 - `chromium/`: la versió per al Vivaldi, el Chrome i el Brave (Manifest V3). `fons.js` és un *service worker* que fa servir `declarativeNetRequest`, `userScripts` i `cookies`; `pagina.js` és el codi de pàgina (al món MAIN); `contingut.js` respon els avisos i detecta les pàgines amb contrasenya. La finestreta, les opcions i `lib/comu.js` són els mateixos del Firefox: `eines/construeix-chromium.py` ho ajunta tot.
-- `proves/prova.py`: obre un Firefox a part, sense finestra, amb un perfil temporal, i fa 132 proves contra un servidor local. Només fa servir Python i el protocol Marionette del Firefox: `python3 proves/prova.py`.
-- `proves/prova-chromium.mjs`: el mateix amb un Vivaldi a part (66 proves), controlat amb el protocol DevTools des del Node: `node proves/prova-chromium.mjs`. Amb `NAVEGADOR=chrome`, les fa amb el Google Chrome (que, des de la versió 137, s'hi carrega amb l'ordre `Extensions.loadUnpacked` del protocol).
+- `proves/prova.py`: obre un Firefox a part, sense finestra, amb un perfil temporal, i fa 146 proves contra un servidor local. Només fa servir Python i el protocol Marionette del Firefox: `python3 proves/prova.py`.
+- `proves/prova-chromium.mjs`: el mateix amb un Vivaldi a part (81 proves), controlat amb el protocol DevTools des del Node: `node proves/prova-chromium.mjs`. Amb `NAVEGADOR=chrome`, les fa amb el Google Chrome (que, des de la versió 137, s'hi carrega amb l'ordre `Extensions.loadUnpacked` del protocol).
+- `proves/prova-android.py`: les proves del Firefox d'Android (33), en un mòbil virtual de l'emulador d'Android, amb el Firefox oficial de Mozilla. També es controla amb Marionette, que el Firefox d'Android obre si un fitxer de configuració de GeckoView ho demana.
 
 Si un web no va bé amb l'extensió, `node proves/diagnostica.mjs <adreça>` l'obre en un Vivaldi a part, sense l'extensió i amb, i compara les recàrregues, els errors i les peticions que fallen.
 

@@ -44,7 +44,10 @@ async function carregaConfig() {
     await browser.storage.local.set({ secret: s.secret });
   }
   const info = await browser.runtime.getBrowserInfo();
+  // Al Firefox d'Android, la disfressa és un altre mòbil Android (MG.disfressa).
+  const plataforma = await browser.runtime.getPlatformInfo().catch(() => ({}));
   cfg = Object.assign(c, {
+    mobil: plataforma.os === "android",
     secret: s.secret,
     epoch: s.epoch || 0,
     epochLloc: s.epochLloc || {},
@@ -61,9 +64,9 @@ async function carregaConfig() {
 
 // La configuració que va a cada pàgina. «confianca» hi porta també els webs automàtics.
 function perAPagina() {
-  const { actiu, avisos, identificador, disfressa, pais, falseja, confianca, secret, epoch, epochLloc, paisIP, versio, gpc } = cfg;
+  const { actiu, avisos, identificador, disfressa, pais, falseja, confianca, secret, epoch, epochLloc, paisIP, versio, gpc, mobil } = cfg;
   const realAuto = [...cfg.realAuto, ...[...realTemporal.keys()].filter(temporal)];
-  return { actiu, avisos, identificador, disfressa, pais, falseja, confianca, realAuto, secret, epoch, epochLloc, paisIP, versio, gpc };
+  return { actiu, avisos, identificador, disfressa, pais, falseja, confianca, realAuto, secret, epoch, epochLloc, paisIP, versio, gpc, mobil };
 }
 
 // En fila: si se'n fan dues alhora, totes dues desregistren el mateix i en queda un de vell, actiu.

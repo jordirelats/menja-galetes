@@ -2,6 +2,8 @@
 /* Menja galetes · la finestreta. Tot el que ve dels webs es posa com a text. */
 
 const $ = (s) => document.querySelector(s);
+// Al mòbil (Firefox d'Android), la finestreta ocupa tota la pantalla (finestreta.css, .mobil).
+if (/Android/.test(navigator.userAgent)) document.documentElement.classList.add("mobil");
 
 // h("div.classe", fills…) → element. Els textos es posen com a text, mai com a HTML.
 function h(etiqueta, ...fills) {
@@ -93,6 +95,8 @@ function graficaReal() {
 }
 
 function sistemaReal() {
+  const android = /Android (\d+)/.exec(navigator.userAgent);
+  if (android) return `Android ${android[1]}`;
   const p = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || "";
   return /linux/i.test(p) ? "Linux" : /win/i.test(p) ? "Windows" : /mac/i.test(p) ? "macOS" : p;
 }
@@ -266,7 +270,7 @@ async function pinta() {
   if (f.navegador) files.push(["Navegador", `${d.navegadorNom} ${cfg.versio} · ${d.soNom}`, `${navegadorReal()} · ${sistemaReal()}`, ""]);
   if (f.ubicacio) files.push(["Ubicació", d.ciutat || "la de debò", ubicacioReal(cfg.paisIP, e.coloReal), ""]);
   if (f.idioma) files.push(["Idioma", d.idiomes ? MG.IDIOMES[d.idiomes[0].split("-")[0]] || d.idiomes[0] : "el de debò", idiomaReal, ""]);
-  if (f.pantalla) files.push(["Pantalla", `${d.pantalla.w} × ${d.pantalla.h}`, `${real.w} × ${real.h}`, ""]);
+  if (f.pantalla) files.push(["Pantalla", d.pantalla ? `${d.pantalla.w} × ${d.pantalla.h}` : "la teva", `${real.w} × ${real.h}`, ""]);
   if (f.pantalla) files.push(["Gràfica", d.gpu.nom, graficaReal(), ""]);
   const emp = f.empremta ? empremtes(d) : null;
   if (emp) files.push(["Empremta", emp.falsa, emp.real, ""]);
@@ -280,6 +284,12 @@ async function pinta() {
     fitxa.append(h("div.q" + cl, q), h("div.fals" + cl, fals), h("div.ver" + cl, ver));
   }
   cos.append(fitxa);
+  if (d.mobil) {
+    cos.append(h("div.nota-mobil", "Al mòbil, et disfresso d'", h("b", "un altre mòbil Android"),
+      ": una altra versió d'Android i una altra gràfica. Si fes veure que ets un ordinador, el web t'enviaria la versió " +
+      "d'ordinador i la pantalla tàctil et delataria. La mida de la pantalla es queda la de debò: al mòbil, el web la veu " +
+      "igualment per l'amplada de la pàgina."));
+  }
   if (f.ubicacio) {
     cos.append(h("div.nota", "Ubicació de debò: la que els webs poden treure de la teva IP (el país, i més o menys la ciutat). " +
       "L'extensió no sap on ets exactament, ni ho pregunta."));

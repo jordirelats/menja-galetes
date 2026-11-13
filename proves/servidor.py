@@ -191,7 +191,8 @@ try { const s = new SharedWorker('/sh.js'); s.port.onmessage = e => r.compartit 
 setTimeout(() => document.getElementById('info').textContent = JSON.stringify(r), 2000);
 </script></body></html>""" % json.dumps(INFO_TREBALLADOR)
 
-SIMPLE = """<!doctype html><html><head><meta charset="utf-8"></head><body><pre id="info">...</pre>%s<script>
+SIMPLE = """<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<style>pre { white-space: pre-wrap; word-break: break-all; }</style></head><body><pre id="info">...</pre>%s<script>
 document.getElementById('info').textContent = JSON.stringify({userAgent: navigator.userAgent, cookie: document.cookie,
   carrega: (sessionStorage.n = (Number(sessionStorage.n) || 0) + 1)});
 </script></body></html>"""

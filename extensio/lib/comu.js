@@ -769,6 +769,24 @@ MG.SISTEMES = {
       ["Apple M2", "Google Inc. (Apple)", "ANGLE (Apple, ANGLE Metal Renderer: Apple M2, Unspecified Version)"],
     ],
   },
+  // Al Firefox d'Android (13/11/2026), la disfressa és un altre mòbil Android: si fes veure que és un
+  // ordinador, el web enviaria la versió d'ordinador i la pantalla tàctil el delataria. La pantalla
+  // es queda la de debò (al mòbil, la pàgina fa l'ample de la pantalla: si no lliguessin, es notaria).
+  // La gràfica, com la diu el Firefox (SanitizeRenderer.cpp agrupa les de debò en aquests noms).
+  Android: {
+    nom: "Android", mobil: true,
+    ua: (v, av) => `Mozilla/5.0 (Android ${av}; Mobile; rv:${v}.0) Gecko/${v}.0 Firefox/${v}.0`,
+    // El Firefox d'Android diu sempre «Linux armv81», sigui quin sigui el processador (comprovat al 160).
+    platform: "Linux armv81", oscpu: "Linux armv81", appVersion: (av) => `5.0 (Android ${av})`,
+    versions: ["12", "13", "14", "15", "16"],
+    nuclis: [6, 8, 8, 8],
+    gpu: [
+      ["Adreno 650", "Qualcomm", "Adreno (TM) 650, or similar"],
+      ["Adreno 540", "Qualcomm", "Adreno (TM) 540, or similar"],
+      ["Mali-G51", "ARM", "Mali-G51, or similar"],
+      ["Mali-T760", "ARM", "Mali-T760, or similar"],
+    ],
+  },
 };
 
 MG.ipDe = function (blocs, r) {
@@ -804,43 +822,51 @@ MG.disfressa = function (cfg, lloc, real) {
   const codiPais = cfg.pais === "qualsevol" ? atzarPais : (MG.PAISOS[cfg.paisIP] ? cfg.paisIP : null);
   const p = codiPais ? MG.PAISOS[codiPais] : null;
   const ciutat = p ? tria(p.ciutats) : null;
-  const so = r() < 0.7 ? "Windows" : "Mac";
+  // Al Vivaldi, el Chrome i el Brave, la disfressa és un Chrome; al Firefox, un Firefox.
+  const chrome = cfg.navegador === "chrome";
+  // Al Firefox d'Android, un altre mòbil Android (cfg.mobil el posa el fons).
+  const tiraSO = r();
+  const so = cfg.mobil && !chrome ? "Android" : tiraSO < 0.7 ? "Windows" : "Mac";
   const S = MG.SISTEMES[so];
   const v = cfg.versio || "158";
 
-  const iPantalla = r();
-  let pantalles = S.pantalles;
-  if (real && real.w) {
-    const grans = pantalles.filter(([w, h]) => w >= real.w && h >= real.h);
-    pantalles = grans.length ? grans : [[real.w, real.h]];
+  // La pantalla: al mòbil, la de debò (pantalla null: no es toca).
+  let pantalla = null;
+  if (!S.mobil) {
+    const iPantalla = r();
+    let pantalles = S.pantalles;
+    if (real && real.w) {
+      const grans = pantalles.filter(([w, h]) => w >= real.w && h >= real.h);
+      pantalles = grans.length ? grans : [[real.w, real.h]];
+    }
+    const [w, h] = pantalles[floor(iPantalla * pantalles.length)];
+    pantalla = { w, h, aw: w, ah: h - S.barra, dpr: tria(S.dpr) };
   }
-  const [w, h] = pantalles[floor(iPantalla * pantalles.length)];
-  const dpr = tria(S.dpr);
-  const nuclis = tria([4, 8, 8, 12, 16]);
+  const nuclis = tria(S.nuclis || [4, 8, 8, 12, 16]);
   const iGpu = floor(r() * S.gpu.length);
   const ip = MG.ipDe([MG.BLOC_IP_FALSA], r);
   const dLat = r(), dLon = r();
   const lat = ciutat ? round((ciutat[1] + (dLat - 0.5) * 0.06) * 1e5) / 1e5 : null;
   const lon = ciutat ? round((ciutat[2] + (dLon - 0.5) * 0.06) * 1e5) / 1e5 : null;
   const soroll = floor(r() * 2147483647);
-  // Al Vivaldi, el Chrome i el Brave, la disfressa és un Chrome; al Firefox, un Firefox.
-  const chrome = cfg.navegador === "chrome";
   const gpu = (chrome ? S.gpuChrome : S.gpu)[iGpu];
   const memoria = tria([4, 8, 8]);
-  const uaDades = {
+  const uaDades = S.uaDades ? {
     platform: S.uaDades.platform, platformVersion: tria(S.uaDades.versions),
     architecture: tria(S.uaDades.arquitectures), bitness: "64", model: "", mobile: false, wow64: false,
-  };
-  const ua = chrome ? S.uaChrome(v) : S.ua(v);
+  } : null;
+  const av = S.versions ? tria(S.versions) : null;   // la versió d'Android
+  const ua = chrome ? S.uaChrome(v) : S.ua(v, av);
 
   return {
     codiPais: codiPais || cfg.paisIP || "", pais: p ? p.nom : (cfg.paisIP || ""), dePais: p ? p.de : "",
-    ciutat: ciutat ? ciutat[0] : null, so, soNom: S.nom,
+    ciutat: ciutat ? ciutat[0] : null, so, soNom: av ? `${S.nom} ${av}` : S.nom, mobil: !!S.mobil,
     navegador: chrome ? "chrome" : "firefox", navegadorNom: chrome ? "Chrome" : "Firefox",
-    ua, platform: S.platform, oscpu: chrome ? null : S.oscpu, appVersion: chrome ? ua.slice(8) : S.appVersion,
+    ua, platform: S.platform, oscpu: chrome ? null : S.oscpu,
+    appVersion: chrome ? ua.slice(8) : typeof S.appVersion === "function" ? S.appVersion(av) : S.appVersion,
     memoria: chrome ? memoria : null, uaDades: chrome ? uaDades : null,
     idiomes: p ? p.idiomes.slice() : null, acceptLanguage: p ? p.accept : null, zona: p ? p.zona : null,
-    pantalla: { w, h, aw: w, ah: h - S.barra, dpr },
+    pantalla,
     nuclis, gpu: { nom: gpu[0], vendor: gpu[1], renderer: gpu[2] },
     ip, lat, lon, soroll,
     nom: ciutat ? `Un ${so} de ${ciutat[0]}` : `Un ${so}`,

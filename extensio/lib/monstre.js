@@ -702,7 +702,8 @@ function MG_monstre(opcions) {
 
   // ---- El motor: pista(el, [[ms, {x, y, r, s, sx, sy, o}, easing cap al punt següent], ...]) ----
   function motor(escena, W, H, T) {
-    const S = Math.round(Math.max(80, Math.min(260, H * 0.4, W * 0.26)));
+    // Quan la pantalla és més alta que ampla (el mòbil), el personatge és més gros: si no, hi quedaria petit.
+    const S = Math.round(Math.max(80, Math.min(260, H * 0.4, W * (H > W ? 0.42 : 0.26))));
     const m = { W, H, T, S, sacsejades: [] };
     m.nou = (css, html, pare) => {
       const e = document.createElement("div");

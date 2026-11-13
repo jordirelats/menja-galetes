@@ -32,3 +32,12 @@ section:last-child { border-bottom: 0; }
 .mira small { flex: 1; color: var(--suau); font-size: 12.5px; }
 .boto-mira { flex: none; font: inherit; font-size: 13px; font-weight: 700; color: #fff; background: var(--xoco); border: 0; border-radius: 999px; padding: 7px 14px; cursor: pointer; }
 .boto-mira:disabled { opacity: .5; cursor: default; }
+
+/* Al mòbil (Firefox d'Android): tota la pantalla, i els tres personatges en una fila. */
+.mobil main { margin: 0; border-radius: 0; box-shadow: none; }
+.mobil .triador { padding: 12px 14px 4px; }
+.mobil .opcions { padding: 0 14px; }
+.mobil .mira { padding: 8px 14px 10px; }
+.mobil .personatges { grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 6px 14px 4px; }
+.mobil .personatge { padding: 8px 4px 6px; font-size: 12px; }
+.mobil .personatge .dibuix { width: 78px; height: 78px; }
