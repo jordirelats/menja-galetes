@@ -75,6 +75,83 @@ def posa_config(m, uuid, canvis):
     """, canvis)
 
 
+# La VPN del Firefox (IP Protection), de mentida: un filtre de servidor intermediari que fa el mateix que
+# IPPProxyableRuleProvider (no hi passa res que vingui d'un principal que no sigui http(s) ni nul: ni les
+# extensions ni el sistema) i que envia el trace del país (/pais) a servidor.engega_vpn(), que diu Alemanya.
+FILTRE_VPN = """
+  const pps = Cc["@mozilla.org/network/protocol-proxy-service;1"].getService(Ci.nsIProtocolProxyService);
+  if (window.__menjaGaletesVPN) pps.unregisterChannelFilter(window.__menjaGaletesVPN);
+  const info = pps.newProxyInfo("http", "127.0.0.1", arguments[0], "", "", 0, 30, null);
+  const filtre = {
+    QueryInterface: ChromeUtils.generateQI(["nsIProtocolProxyChannelFilter"]),
+    applyFilter(canal, perDefecte, cb) {
+      let p = perDefecte;
+      try {
+        const li = canal.loadInfo;
+        const pr = li && li.loadingPrincipal && !li.loadingPrincipal.isSystemPrincipal ? li.loadingPrincipal
+          : Services.scriptSecurityManager.getChannelURIPrincipal(canal);
+        const passa = pr.isNullPrincipal || pr.schemeIs("http") || pr.schemeIs("https");
+        if (passa && canal.URI.pathQueryRef.split("?")[0] === "/pais") p = info;
+      } catch (e) { /* res */ }
+      cb.onProxyFilterResult(p);
+    },
+  };
+  pps.registerChannelFilter(filtre, 0);
+  window.__menjaGaletesVPN = filtre;
+  Services.prefs.setBoolPref("network.proxy.allow_hijacking_localhost", true);
+  return 1;"""
+TREU_VPN = """
+  const pps = Cc["@mozilla.org/network/protocol-proxy-service;1"].getService(Ci.nsIProtocolProxyService);
+  if (window.__menjaGaletesVPN) pps.unregisterChannelFilter(window.__menjaGaletesVPN);
+  window.__menjaGaletesVPN = null;
+  Services.prefs.clearUserPref("network.proxy.allow_hijacking_localhost");
+  return 1;"""
+
+
+def prova_vpn(m, uuid, web, diari):
+    """La VPN del Firefox fa passar els webs i no les extensions: el país s'ha de mirar com un web (la sonda).
+    `diari`: l'adreça d'un web qualsevol (ni de confiança ni real), per veure-hi la disfressa."""
+    de_debo = servidor.ESTAT["pais"]   # el país que diu el servidor de proves sense VPN
+    vpn = servidor.engega_vpn()
+    try:
+        m.context("chrome")
+        m.js(FILTRE_VPN, 8777)
+        m.context("content")
+        m.ves(f"moz-extension://{uuid}/opcions/opcions.html")
+        directe = m.js_async("""const fet = arguments[arguments.length - 1];
+          fetch(arguments[0], {cache: "no-store"}).then(r => r.text()).then(t => fet(t), e => fet("error " + e));""", f"{web}/pais")
+        comprova("la VPN de mentida fa com la del Firefox: una petició directa de l'extensió no hi passa",
+                 f"loc={de_debo}" in str(directe), directe)
+        r = json.loads(missatge(m, uuid, {"tipus": "comprovaPais"}) or "{}")
+        comprova("amb la VPN, l'extensió veu el país que veuen els webs (Alemanya), no el de la connexió de debò",
+                 r.get("paisIP") == "DE", r)
+        abans = m.ordre("WebDriver:GetWindowHandle")
+        abans = abans["value"] if isinstance(abans, dict) else abans
+        pestanya = m.pestanya_nova()
+        m.ves(diari)
+        inf = info_pagina(m)
+        comprova("i la disfressa és d'Alemanya (l'idioma i l'hora)",
+                 str((inf.get("languages") or [""])[0]).startswith("de") and inf.get("zona") == "Europe/Berlin",
+                 [inf.get("languages"), inf.get("zona")])
+        m.pestanya_nova()   # la finestreta busca la pestanya del web per l'adreça (?web=)
+        m.ves(f"moz-extension://{uuid}/finestreta/finestreta.html?web={diari}")
+        time.sleep(1.2)
+        text = m.js("return document.body.innerText;")
+        comprova("la finestreta ensenya la IP i la ubicació de la VPN", "198.51.100.7" in text and "Alemanya" in text,
+                 " | ".join(text.split("\n"))[:400])
+        m.tanca()
+        m.canvia(pestanya)
+        m.tanca()
+        m.canvia(abans)
+    finally:
+        m.context("chrome")
+        m.js(TREU_VPN)
+        m.context("content")
+        vpn.shutdown()
+    r = json.loads(missatge(m, uuid, {"tipus": "comprovaPais"}) or "{}")
+    comprova("sense la VPN, torna a ser el de la connexió de debò", r.get("paisIP") == de_debo, [r, de_debo])
+
+
 def prova_llista_fixa():
     """Els bancs, els pagaments i l'Administració: sempre amb la identitat real."""
     codi = (EXT / "lib" / "comu.js").read_text() + """
@@ -129,7 +206,7 @@ def main():
         'user_pref("intl.accept_languages", "ca,es,en");',
         # Noms de prova que van al servidor local (no surt res a internet)
         'user_pref("network.dns.localDomains", "diari.test,www.bancprova.test,www.prova.gob.es,botiga.test,'
-        'h.online-metrix.net,empresa.test,www.instagram.com,revista.test,amagat.test,bucle.test,static.hotjar.com,us1.list-manage.com,l.facebook.com,vell.test,premsa.test");',
+        'h.online-metrix.net,empresa.test,www.instagram.com,revista.test,amagat.test,bucle.test,static.hotjar.com,us1.list-manage.com,l.facebook.com,vell.test,premsa.test,vpn.test");',
     ]))
     env = dict(os.environ, MOZ_HEADLESS="1")
     ff = subprocess.Popen(["firefox", "--headless", "--marionette", "-remote-allow-system-access", "--no-remote", "--profile", str(perfil)],
@@ -616,6 +693,11 @@ def main():
         normal, cont = (ga or {}).get("0"), (ga or {}).get(str(uc))
         comprova("contenidors: cadascun té el seu identificador fals (no es copia el de la pestanya normal)",
                  normal and cont and normal != cont and "111111111" not in cont, ga)
+
+        # ---- 16. La VPN del Firefox ----
+        print("\n16. La VPN del Firefox: el país que veuen els webs")
+        prova_vpn(m, uuid, WEB, "http://vpn.test:8775/primera")
+
         if not all(ok for _, ok, _ in resultats):
             # Si alguna falla: els errors de l'extensió que ha vist el Firefox.
             m.context("chrome")

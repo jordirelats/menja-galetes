@@ -48,7 +48,7 @@ WEB = "http://localhost:8775"
 ADB = shutil.which("adb") or str(SDK / "platform-tools" / "adb")
 DOMINIS = ("diari.test,www.bancprova.test,www.prova.gob.es,botiga.test,h.online-metrix.net,empresa.test,"
            "www.instagram.com,revista.test,amagat.test,bucle.test,static.hotjar.com,us1.list-manage.com,"
-           "l.facebook.com,vell.test,premsa.test")
+           "l.facebook.com,vell.test,premsa.test,vpn.test")
 
 
 def adb(*args, check=True, timeout=120):
@@ -106,6 +106,7 @@ def prepara_firefox():
     adb("shell", "am", "set-debug-app", "--persistent", PAQUET)
     adb("forward", f"tcp:{PORT_M}", "tcp:2828")
     adb("reverse", "tcp:8775", "tcp:8775")
+    adb("reverse", "tcp:8777", "tcp:8777")   # la VPN de mentida (prova.prova_vpn)
     # La pantalla encesa i desbloquejada, perquè el Firefox pinti les pàgines.
     adb("shell", "input", "keyevent", "KEYCODE_WAKEUP", check=False)
     adb("shell", "wm", "dismiss-keyguard", check=False)
@@ -401,6 +402,10 @@ def main():
             except Exception:
                 pass
         comprova("quan marxa, la pàgina es torna a carregar", recarregada)
+
+        # ---- 7. La VPN del Firefox ----
+        print("\n7. La VPN del Firefox: el país que veuen els webs")
+        prova.prova_vpn(m, uuid, WEB, "http://vpn.test:8775/primera")
     except Exception as e:
         comprova("la prova ha arribat al final", False, f"{type(e).__name__}: {e}")
     finally:
@@ -411,6 +416,7 @@ def main():
         adb("shell", "am", "force-stop", PAQUET, check=False)
         adb("forward", "--remove", f"tcp:{PORT_M}", check=False)
         adb("reverse", "--remove", "tcp:8775", check=False)
+        adb("reverse", "--remove", "tcp:8777", check=False)
         if emu:
             adb("emu", "kill", check=False)
             emu.wait(timeout=60)

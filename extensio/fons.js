@@ -671,12 +671,50 @@ browser.webRequest.onHeadersReceived.addListener(rebutCapcaleres, { urls: ["<all
 
 /* ---- El país de la connexió ---- */
 
+// La consulta del país, des d'un marc amb sandbox (sonda/): la VPN del Firefox (IP Protection) hi fa passar el
+// trànsit dels webs i el dels marcs amb sandbox, però no el de les extensions (IPPSiteRuleProviders.sys.mjs).
+// Així la disfressa és del país que veuen els webs. Si la sonda no respon en 10 s, es demana directament.
+function demanaTrace(url) {
+  return new Promise((resol) => {
+    let marc = null;
+    let fet = false;
+    let rellotge = null;
+    const acaba = async (text) => {
+      if (fet) return;
+      fet = true;
+      removeEventListener("message", escolta);
+      clearTimeout(rellotge);
+      if (marc) marc.remove();
+      if (typeof text === "string") { resol(text); return; }
+      try {
+        const r = await fetch(url, { cache: "no-store", credentials: "omit" });
+        resol(r.ok ? await r.text() : null);
+      } catch (e) {
+        resol(null);
+      }
+    };
+    const escolta = (e) => {
+      if (marc && e.source === marc.contentWindow && e.data && e.data.menjaGaletesSonda) acaba(e.data.text);
+    };
+    addEventListener("message", escolta);
+    rellotge = setTimeout(() => acaba(null), 10000);
+    try {
+      marc = document.createElement("iframe");
+      marc.setAttribute("sandbox", "allow-scripts");
+      marc.src = `${browser.runtime.getURL("sonda/sonda.html")}#${encodeURIComponent(url)}`;
+      document.body.appendChild(marc);
+    } catch (e) {
+      acaba(null);
+    }
+  });
+}
+
 async function comprovaPais() {
   if (!cfg.actiu) return;
   let nou;
   try {
-    const r = await fetch(cfg.urlPais, { cache: "no-store", credentials: "omit" });
-    const text = await r.text();
+    const text = await demanaTrace(cfg.urlPais);
+    if (text == null) return;
     const m = /^loc=([A-Z]{2})$/m.exec(text);
     if (!m) return;
     nou = m[1];

@@ -44,7 +44,7 @@ La disfressa arriba també als llocs on els webs més espavilats van a buscar el
 
 **Contenidors i finestres privades** (Firefox): cada contenidor té els seus identificadors falsos, i el que es menja en un no toca els altres.
 
-**Si la IP canvia de país** (per exemple, si encens una VPN), es posa una disfressa del país nou i se les menja totes, perquè el web no pugui lligar l'abans i el després.
+**Si la IP canvia de país** (per exemple, si encens una VPN), es posa una disfressa del país nou i se les menja totes, perquè el web no pugui lligar l'abans i el després. Amb la VPN del Firefox també funciona. Aquesta VPN només fa passar el trànsit dels webs, i no el de les extensions. Per això el país es mira des d'un marc amb `sandbox`, que la VPN tracta com un web.
 
 **«Menja-te-les totes ara».** Des de la finestreta, se les menja totes de cop i es posa una disfressa nova per a aquell web. Mentrestant, un mico (o el que triïs a les opcions, a «Qui se les menja»: l'ós rentador o el bufó, un pallasso medieval) entra saltant a la pàgina, agafa les galetes amb les mans (porten el nom de les galetes de seguiment que s'ha menjat d'aquell web) i se les menja a mossegades: en salten trossos, li cauen molles de la boca i es queden per terra. N'atrapa una al vol, diu «Tinc gana… no n'hi ha més?» i se'n va. Si el sistema demana menys moviment, només surt la bombolla.
 
@@ -113,11 +113,12 @@ Al Chromium, l'extensió fa el mateix que al Firefox, amb aquestes diferències:
 - `extensio/fons.js`: reescriu les `Set-Cookie` abans que es desin (`webRequest` bloquejant, que el Firefox manté a Manifest V2), posa la disfressa a les capçaleres i se les menja quan tanques la pestanya.
 - `extensio/lib/pagina.js`: el codi que va a cada pàgina a `document_start`, abans que cap script del web. Toca els objectes de la pàgina amb les Xray del Firefox (`wrappedJSObject`, `exportFunction`).
 - `extensio/lib/comu.js`: les peces comunes (llocs, galetes de seguiment, països i disfresses).
+- `extensio/sonda/`: la consulta del país (el trace de Cloudflare), des d'un marc amb `sandbox`. La VPN del Firefox (IP Protection) deixa fora les peticions de les extensions però no les dels marcs amb `sandbox`. Així, la disfressa és del país que veuen els webs.
 - `extensio/lib/monstre.js`: el mico, l'ós rentador i el bufó (`MG_personatges()`; per afegir-ne un, n'hi ha prou amb el dibuix). Es posa a la pàgina només quan cliques «Menja-te-les totes ara», dins d'una *shadow root* tancada i amb `element.animate()`, perquè ni els estils ni la CSP del web el puguin tocar.
 - `chromium/`: la versió per al Vivaldi, el Chrome i el Brave (Manifest V3). `fons.js` és un *service worker* que fa servir `declarativeNetRequest`, `userScripts` i `cookies`; `pagina.js` és el codi de pàgina (al món MAIN); `contingut.js` respon els avisos i detecta les pàgines amb contrasenya. La finestreta, les opcions i `lib/comu.js` són els mateixos del Firefox: `eines/construeix-chromium.py` ho ajunta tot.
-- `proves/prova.py`: obre un Firefox a part, sense finestra, amb un perfil temporal, i fa 146 proves contra un servidor local. Només fa servir Python i el protocol Marionette del Firefox: `python3 proves/prova.py`.
+- `proves/prova.py`: obre un Firefox a part, sense finestra, amb un perfil temporal, i fa 151 proves contra un servidor local. Només fa servir Python i el protocol Marionette del Firefox: `python3 proves/prova.py`.
 - `proves/prova-chromium.mjs`: el mateix amb un Vivaldi a part (81 proves), controlat amb el protocol DevTools des del Node: `node proves/prova-chromium.mjs`. Amb `NAVEGADOR=chrome`, les fa amb el Google Chrome (que, des de la versió 137, s'hi carrega amb l'ordre `Extensions.loadUnpacked` del protocol).
-- `proves/prova-android.py`: les proves del Firefox d'Android (33), en un mòbil virtual de l'emulador d'Android, amb el Firefox oficial de Mozilla. També es controla amb Marionette, que el Firefox d'Android obre si un fitxer de configuració de GeckoView ho demana.
+- `proves/prova-android.py`: les proves del Firefox d'Android (38), en un mòbil virtual de l'emulador d'Android, amb el Firefox oficial de Mozilla. També es controla amb Marionette, que el Firefox d'Android obre si un fitxer de configuració de GeckoView ho demana.
 
 Si un web no va bé amb l'extensió, `node proves/diagnostica.mjs <adreça>` l'obre en un Vivaldi a part, sense l'extensió i amb, i compara les recàrregues, els errors i les peticions que fallen.
 

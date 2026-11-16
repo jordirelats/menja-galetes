@@ -246,11 +246,13 @@ class Gestor(BaseHTTPRequestHandler):
     def log_message(self, *a):
         pass
 
-    def _envia(self, cos, tipus="text/html; charset=utf-8", galetes=()):
+    def _envia(self, cos, tipus="text/html; charset=utf-8", galetes=(), cors=False):
         dades = cos if isinstance(cos, bytes) else cos.encode()
         self.send_response(200)
         self.send_header("Content-Type", tipus)
         self.send_header("Cache-Control", "no-store")
+        if cors:
+            self.send_header("Access-Control-Allow-Origin", "*")   # com el trace de Cloudflare
         for g in galetes:
             self.send_header("Set-Cookie", g)
         self.send_header("Content-Length", str(len(dades)))
@@ -329,9 +331,33 @@ class Gestor(BaseHTTPRequestHandler):
         elif u.path == "/pais":
             if "posa" in q:
                 ESTAT["pais"] = q["posa"][0]
-            self._envia(f"fl=000\nip=192.0.2.1\ncolo=BCN\nloc={ESTAT['pais']}\n", "text/plain")
+            self._envia(f"fl=000\nip=192.0.2.1\ncolo=BCN\nloc={ESTAT['pais']}\n", "text/plain", cors=True)
         else:
             self.send_error(404)
+
+
+class GestorVPN(BaseHTTPRequestHandler):
+    """Una VPN de mentida (servidor intermediari HTTP) per a la secció 16: a tot el que hi passa, respon com el
+    trace de Cloudflare des d'Alemanya. La IP és del bloc de documentació (198.51.100.0/24), que no és de ningú."""
+
+    def log_message(self, *a):
+        pass
+
+    def do_GET(self):
+        dades = b"fl=000\nip=198.51.100.7\ncolo=FRA\nloc=DE\n"
+        self.send_response(200)
+        self.send_header("Content-Type", "text/plain")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Content-Length", str(len(dades)))
+        self.end_headers()
+        self.wfile.write(dades)
+
+
+def engega_vpn(port=8777):
+    srv = ThreadingHTTPServer(("127.0.0.1", port), GestorVPN)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    return srv
 
 
 def engega(port=8775):
