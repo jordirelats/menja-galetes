@@ -890,8 +890,12 @@ MG.canviaIP = function (falsa) {
  * en copien el text dins del codi que s'afegeix al començament de cada treballador.
  */
 
-// Soroll a les dades d'una imatge. Sempre el mateix per a la mateixa llavor, i es pot
+// Soroll a les dades d'una imatge (RGBA). Sempre el mateix per a la mateixa llavor, i es pot
 // aplicar dues vegades sense que canviï res (posa un bit, no el gira).
+// Els canvis van a píxels opacs: en un de transparent, el color es perd en desar la imatge (la
+// majoria de les empremtes són text sobre fons transparent). Com que el soroll no toca l'alfa,
+// en tornar-lo a aplicar tria els mateixos píxels. 16 canvis com a mínim: cadascun deixa el bit
+// igual la meitat de les vegades, i amb pocs canvis l'empremta podia sortir la de debò.
 // M i car: Math.imul/floor i charCodeAt guardats abans que la pàgina els pugués canviar (MG.M, MG.car).
 MG.sorolla = function (dades, llargada, llavor, M, car) {
   const imul = (M || Math).imul, floor = (M || Math).floor;
@@ -908,9 +912,19 @@ MG.sorolla = function (dades, llargada, llavor, M, car) {
   };
   if (!llargada) return;
   const n = llargada >> 12;
-  const canvis = n < 6 ? 6 : n > 24 ? 24 : n;
+  const canvis = n < 16 ? 16 : n > 32 ? 32 : n;
+  const pixels = floor(llargada / 4);
   for (let i = 0; i < canvis; i++) {
-    const k = floor(r() * (llargada / 4)) * 4 + floor(r() * 3);
+    // Fins a 16 intents per trobar un píxel opac; si no n'hi ha, un de semitransparent; si no, el primer.
+    let px = floor(r() * pixels), triat = -1, mig = -1;
+    for (let j = 0; j < 16; j++) {
+      const a = dades[px * 4 + 3];
+      if (a === 255) { triat = px; break; }
+      if (a > 0 && mig < 0) mig = px;
+      px = floor(r() * pixels);
+    }
+    if (triat < 0) triat = mig >= 0 ? mig : px;
+    const k = triat * 4 + floor(r() * 3);
     const bit = r() < 0.5 ? 0 : 1;
     dades[k] = (dades[k] & 0xFE) | bit;
   }

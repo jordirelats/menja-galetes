@@ -212,6 +212,7 @@ def main():
     try:
         versio = prepara_firefox()
         m = connecta()
+        m.ordre("WebDriver:SetTimeouts", {"pageLoad": 30000})   # que una càrrega encallada falli abans que el sòcol (60 s)
         print(f"Firefox {versio} per a Android, al mòbil virtual")
         espera_pagina(m, "/simple")
         neteja(m)

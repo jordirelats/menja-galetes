@@ -125,24 +125,15 @@ def prova_vpn(m, uuid, web, diari):
         r = json.loads(missatge(m, uuid, {"tipus": "comprovaPais"}) or "{}")
         comprova("amb la VPN, l'extensió veu el país que veuen els webs (Alemanya), no el de la connexió de debò",
                  r.get("paisIP") == "DE", r)
-        abans = m.ordre("WebDriver:GetWindowHandle")
-        abans = abans["value"] if isinstance(abans, dict) else abans
-        pestanya = m.pestanya_nova()
+        # Sense pestanyes noves: al Firefox d'Android, les del darrere de vegades no acaben de carregar.
         m.ves(diari)
         inf = info_pagina(m)
         comprova("i la disfressa és d'Alemanya (l'idioma i l'hora)",
                  str((inf.get("languages") or [""])[0]).startswith("de") and inf.get("zona") == "Europe/Berlin",
                  [inf.get("languages"), inf.get("zona")])
-        m.pestanya_nova()   # la finestreta busca la pestanya del web per l'adreça (?web=)
-        m.ves(f"moz-extension://{uuid}/finestreta/finestreta.html?web={diari}")
-        time.sleep(1.2)
-        text = m.js("return document.body.innerText;")
-        comprova("la finestreta ensenya la IP i la ubicació de la VPN", "198.51.100.7" in text and "Alemanya" in text,
-                 " | ".join(text.split("\n"))[:400])
-        m.tanca()
-        m.canvia(pestanya)
-        m.tanca()
-        m.canvia(abans)
+        e = json.loads(missatge(m, uuid, {"tipus": "estat", "tabId": -1, "lloc": "vpn.test"}) or "{}")
+        comprova("la finestreta ensenyarà la IP i la ubicació de la VPN (198.51.100.7, a prop de Frankfurt)",
+                 e.get("ipReal") == "198.51.100.7" and e.get("coloReal") == "FRA", [e.get("ipReal"), e.get("coloReal")])
     finally:
         m.context("chrome")
         m.js(TREU_VPN)
@@ -266,6 +257,20 @@ def main():
         comprova("zona horària d'Espanya", info.get("zona") == "Europe/Madrid", info.get("zona"))
         comprova("nuclis falsos", info.get("nuclis") in (4, 8, 12, 16), info.get("nuclis"))
         comprova("canvas: el mateix soroll dues vegades", info.get("canvas1") == info.get("canvas2"))
+        # La mateixa imatge, dibuixada en una pàgina de l'extensió (que no va disfressada): l'empremta de debò.
+        # En una altra pestanya: si aquesta canviés de web, la finestreta de la secció 5 ja no hi veuria la _fbp.
+        aqui = m.ordre("WebDriver:GetWindowHandle")
+        aqui = aqui["value"] if isinstance(aqui, dict) else aqui
+        m.pestanya_nova()
+        m.ves(f"moz-extension://{uuid}/opcions/opcions.html")
+        canvas_real = m.js("""function hashText(s){let h=0;for(let i=0;i<s.length;i++){h=(h*31+s.charCodeAt(i))|0}return h}
+          const c=document.createElement('canvas');c.width=220;c.height=40;const x=c.getContext('2d');
+          x.fillStyle='#f60';x.fillRect(10,5,100,20);x.fillStyle='#069';x.font='16px Arial';x.fillText('Galetes 123 <canvas>',4,30);
+          return hashText(c.toDataURL());""")
+        m.tanca()
+        m.canvia(aqui)
+        comprova("canvas: i diferent del de debò (el soroll cau en píxels opacs)", info.get("canvas1") != canvas_real,
+                 [info.get("canvas1"), canvas_real])
         comprova("WebRTC: la IP del candidat és la falsa, i de ningú", "83.45.10.20" not in str(info.get("rtc"))
                  and " 100." in str(info.get("rtc")), info.get("rtc"))
         comprova("WebGL: gràfica de la disfressa", "or similar" in str(info.get("webgl")) and "ANGLE" in str(info.get("webgl"))
