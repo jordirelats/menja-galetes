@@ -298,9 +298,12 @@ def main():
         comprova("User-Agent de la capçalera = el de la pàgina", eco.get("User-Agent") == info.get("userAgent"),
                  eco.get("User-Agent"))
         comprova("Accept-Language en castellà", eco.get("Accept-Language", "").startswith("es"), eco.get("Accept-Language"))
-        xff = eco.get("X-Forwarded-For", "0.0.0.0").split(".")
-        comprova("X-Forwarded-For: una IP de ningú (100.64.0.0/10)", xff[0] == "100" and 64 <= int(xff[1]) <= 127,
-                 eco.get("X-Forwarded-For"))
+        # La IP falsa de X-Forwarded-For només va als tercers: al web que visites, no (GLS, 24/11/2026).
+        comprova("X-Forwarded-For: el web que visites no la rep", "X-Forwarded-For" not in eco, eco.get("X-Forwarded-For"))
+        eco3 = json.loads(m.js_async("const fet = arguments[arguments.length - 1]; fetch('http://diari.test:8775/eco').then((r) => r.text()).then(fet, (e) => fet('{}'));"))
+        xff = eco3.get("X-Forwarded-For", "0.0.0.0").split(".")
+        comprova("X-Forwarded-For: un tercer rep una IP de ningú (100.64.0.0/10)", xff[0] == "100" and 64 <= int(xff[1]) <= 127,
+                 eco3.get("X-Forwarded-For"))
         m.ves(f"{WEB}/sw-prova")
         swi = {}
         for _ in range(20):

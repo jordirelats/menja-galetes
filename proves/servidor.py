@@ -348,7 +348,7 @@ class Gestor(BaseHTTPRequestHandler):
         elif u.path == "/avis":
             self._envia(AVIS)
         elif u.path == "/eco":
-            self._envia(json.dumps(dict(self.headers.items())), "text/plain; charset=utf-8")
+            self._envia(json.dumps(dict(self.headers.items())), "text/plain; charset=utf-8", cors=True)
         elif u.path == "/pais":
             if "posa" in q:
                 ESTAT["pais"] = q["posa"][0]

@@ -3,6 +3,9 @@
 // perfil temporal), primer sense l'extensió i després amb, i compara què passa.
 //
 //     node proves/diagnostica.mjs https://mail.zoho.eu/zm/ [segons]
+//     NAVEGADOR=chrome node proves/diagnostica.mjs <adreça> [segons]   → amb el Google Chrome
+//     APAGA=ipCapcaleres,idioma …   → apaga aquestes parts de la disfressa (les claus de PER_DEFECTE.falseja)
+//     MOSTRA=<tros d'adreça> …        → capçaleres, cos i resposta de les peticions que hi coincideixen
 //
 // Va a internet de debò (només a l'adreça que li dones i al que aquesta carregui). No entra a cap
 // compte: veu el web com algú que no hi ha entrat. Les captures van a proves/captures/diagnosi-*.png.
@@ -19,12 +22,19 @@ const ARREL = join(AQUI, "..");
 const EXT = join(ARREL, "construit", "menja-galetes-chromium");
 const URL_WEB = process.argv[2];
 const SEGONS = Number(process.argv[3] || 12);
+// MOSTRA=<tros d'adreça>: ensenya les capçaleres i el cos de les peticions que hi coincideixen, i què responen.
+const MOSTRA = process.env.MOSTRA || "";
 if (!URL_WEB) { console.log("Fes servir: node proves/diagnostica.mjs <adreça> [segons]"); process.exit(2); }
 
 const idDe = (cami) => [...createHash("sha256").update(cami).digest("hex").slice(0, 32)]
   .map((c) => String.fromCharCode(97 + parseInt(c, 16))).join("");
 execFileSync("python3", [join(ARREL, "eines", "construeix-chromium.py")]);
-const binari = realpathSync(execFileSync("sh", ["-c", "command -v vivaldi"]).toString().trim()).replace(/vivaldi$/, "vivaldi-bin");
+// Per defecte, el Vivaldi. Amb NAVEGADOR=chrome, el Google Chrome (el Vivaldi sense finestra de vegades
+// no respon a les pestanyes noves).
+const ambChrome = process.env.NAVEGADOR === "chrome";
+const binari = ambChrome
+  ? realpathSync(execFileSync("sh", ["-c", "command -v google-chrome"]).toString().trim())
+  : realpathSync(execFileSync("sh", ["-c", "command -v vivaldi"]).toString().trim()).replace(/vivaldi$/, "vivaldi-bin");
 
 async function passada(ambExtensio, port) {
   const perfil = mkdtempSync(join(tmpdir(), "menja-galetes-diagnosi-"));
@@ -32,19 +42,29 @@ async function passada(ambExtensio, port) {
   mkdirSync(join(perfil, "Default"));
   writeFileSync(join(perfil, "Default", "Preferences"), JSON.stringify({ extensions: { ui: { developer_mode: true }, settings: { [id]: { user_scripts_enabled: true } } } }));
   const nav = spawn(binari, ["--headless=new", "--disable-gpu", "--no-first-run", "--no-default-browser-check",
-    ...(ambExtensio ? [`--load-extension=${EXT}`] : []), `--user-data-dir=${perfil}`, `--remote-debugging-port=${port}`,
+    ...(ambChrome ? ["--enable-unsafe-extension-debugging"] : ambExtensio ? [`--load-extension=${EXT}`] : []), `--user-data-dir=${perfil}`, `--remote-debugging-port=${port}`,
     "--window-size=1280,900", "about:blank"], { stdio: "ignore" });
-  const r = { excepcions: [], consola: [], fallades: [], navegacions: [], peticions: 0 };
+  const r = { excepcions: [], consola: [], fallades: [], errorsHttp: [], mostrades: [], navegacions: [], peticions: 0 };
   let c;
   try {
     let v;
     for (let i = 0; i < 60 && !v; i++) { await dorm(500); try { v = await (await fetch(`http://127.0.0.1:${port}/json/version`)).json(); } catch (e) { /* encara no */ } }
     c = await CDP.connecta(v.webSocketDebuggerUrl);
+    if (ambExtensio && ambChrome) await c.envia("Extensions.loadUnpacked", { path: EXT });
     if (ambExtensio) {
       let sw;
       for (let i = 0; i < 20 && !sw; i++) { await dorm(500); sw = (await c.objectius()).find((t) => t.type === "service_worker" && t.url.includes(id)); }
       const fons = await c.connectaA(sw.targetId);
       await c.avalua(fons, "llest");
+      // APAGA=ipCapcaleres,idioma…: apaga aquestes parts de la disfressa, per buscar quina fa fallar el web.
+      if (process.env.APAGA) {
+        const claus = JSON.stringify(process.env.APAGA.split(","));
+        await c.avalua(fons, `chrome.storage.local.get("config").then((s) => { const cfg = s.config || {};
+          cfg.falseja = Object.assign({}, MG.PER_DEFECTE.falseja, cfg.falseja);
+          for (const k of ${claus}) { if (!(k in cfg.falseja)) throw new Error("no hi ha " + k); cfg.falseja[k] = false; }
+          return chrome.storage.local.set({ config: cfg }); })`);
+        await dorm(1500);
+      }
       r.sw = fons;
     }
     const { targetId } = await c.envia("Target.createTarget", { url: "about:blank" });
@@ -65,6 +85,14 @@ async function passada(ambExtensio, port) {
       if (d.method === "Runtime.consoleAPICalled" && p.type === "error") r.consola.push(p.args.map((a) => a.value ?? a.description).join(" ").slice(0, 300));
       if (d.method === "Log.entryAdded" && p.entry.level === "error") r.consola.push(`[${p.entry.source}] ${p.entry.text.slice(0, 300)}`);
       if (d.method === "Network.requestWillBeSent") { r.peticions++; urls.set(p.requestId, p.request.url); }
+      if (MOSTRA && d.method === "Network.requestWillBeSentExtraInfo" && urls.get(p.requestId)?.includes(MOSTRA)) r.mostrades.push(`  capçaleres enviades: ${JSON.stringify(p.headers)}`);
+      if (MOSTRA && d.method === "Network.requestWillBeSent" && p.request.url.includes(MOSTRA)) r.mostrades.push(`${p.request.method} ${p.request.url}\n  cos: ${String(p.request.postData || "").slice(0, 600)}`);
+      if (MOSTRA && d.method === "Network.responseReceived" && p.response.url.includes(MOSTRA)) {
+        r.mostrades.push(`  resposta ${p.response.status}`);
+        const id = p.requestId;
+        setTimeout(() => c.envia("Network.getResponseBody", { requestId: id }, pag).then((b) => r.mostrades.push(`  cos de la resposta: ${b.body.slice(0, 600)}`)).catch(() => {}), 1500);
+      }
+      if (d.method === "Network.responseReceived" && p.response.status >= 400) r.errorsHttp.push(`${p.response.status} ${p.type}  ${p.response.url.slice(0, 160)}`);
       if (d.method === "Network.loadingFailed" && !p.canceled) r.fallades.push(`${p.errorText}${p.blockedReason ? " (" + p.blockedReason + ")" : ""}  ${String(urls.get(p.requestId)).slice(0, 140)}`);
       if (d.method === "Page.frameNavigated" && !p.frame.parentId) r.navegacions.push(p.frame.url.slice(0, 160));
     });
@@ -99,5 +127,7 @@ for (const amb of [false, true]) {
   console.log(`Excepcions (${r.excepcions.length}):` + r.excepcions.slice(0, 15).map((x) => "\n  " + x).join(""));
   console.log(`Errors de consola (${r.consola.length}):` + r.consola.slice(0, 15).map((x) => "\n  " + x).join(""));
   console.log(`Peticions fallades (${r.fallades.length}):` + r.fallades.slice(0, 20).map((x) => "\n  " + x).join(""));
+  console.log(`Respostes amb error (${r.errorsHttp.length}):` + r.errorsHttp.slice(0, 20).map((x) => "\n  " + x).join(""));
+  if (MOSTRA) console.log("Peticions mostrades:\n" + r.mostrades.join("\n"));
   if (r.estat) console.log("Estat de l'extensió:", r.estat);
 }

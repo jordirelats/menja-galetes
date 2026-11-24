@@ -9,7 +9,7 @@ const FALSEJA = [
   ["empremta", "Empremta", "Canvas i àudio amb soroll, perquè no et reconeguin"],
   ["galetes", "Galetes de seguiment", "Se les menja i hi posa identificadors inventats"],
   ["ipScripts", "IP que demanen els scripts", "Els scripts que et pregunten la IP (WebRTC) en reben una de falsa, que no és de ningú (100.64.x.x)"],
-  ["ipCapcaleres", "IP de les capçaleres", "Una IP falsa a X-Forwarded-For, que tampoc no és de ningú, per als webs que se la creuen"],
+  ["ipCapcaleres", "IP de les capçaleres", "Una IP falsa a X-Forwarded-For, que tampoc no és de ningú, per als rastrejadors i els altres tercers que se la creuen. Al web que visites no: ja veu la de debò per la connexió, i si es creu la falsa pot deixar de funcionar"],
 ];
 // Al mòbil (Firefox d'Android): la disfressa és un altre mòbil Android, i la pantalla es queda la de debò.
 const MOBIL = /Android/.test(navigator.userAgent);

@@ -551,7 +551,10 @@ async function abansEnviar(det) {
       }).join(";").trim();
     }
   }
-  if (f.ipCapcaleres && d.ip) hs.push({ name: "X-Forwarded-For", value: d.ip });
+  // La IP falsa de X-Forwarded-For, només als tercers (els rastrejadors). El web que visites ja veu la de
+  // debò per la connexió, i si es creu la capçalera la fa servir per a coses seves (el país, contra els
+  // robots…) i pot deixar de funcionar: el 24/11/2026, l'API de GLS responia «Expedition search forbidden».
+  if (f.ipCapcaleres && d.ip && MG.lloc(hostReq) !== lloc) hs.push({ name: "X-Forwarded-For", value: d.ip });
   // ETag: un tercer pot fer servir la memòria cau com una galeta (et dona un ETag únic i el
   // reconeix quan el navegador el torna). Als tercers no se'ls torna.
   if (f.galetes && MG.lloc(hostReq) !== lloc) {

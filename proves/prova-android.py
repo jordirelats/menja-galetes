@@ -36,7 +36,7 @@ import servidor  # noqa: E402
 import prova  # noqa: E402
 from prova import comprova, galetes, info_pagina, missatge, posa_config  # noqa: E402
 
-EXT = AQUI.parent / "extensio"
+EXT = Path(os.environ.get("MG_EXT") or AQUI.parent / "extensio")   # MG_EXT=<carpeta>: una altra còpia
 CAPTURES = AQUI / "captures"
 SDK = Path.home() / "Android" / "Sdk"
 AVD = "menja-galetes"
@@ -409,6 +409,12 @@ def main():
         prova.prova_vpn(m, uuid, WEB, "http://vpn.test:8775/primera")
     except Exception as e:
         comprova("la prova ha arribat al final", False, f"{type(e).__name__}: {e}")
+        try:   # què hi havia a la pantalla del mòbil quan ha fallat
+            png = subprocess.run([ADB, "-s", DISP, "exec-out", "screencap", "-p"], capture_output=True, timeout=40).stdout
+            (CAPTURES / "android-fallada.png").write_bytes(png)
+            print("   (captura de la fallada: proves/captures/android-fallada.png)")
+        except Exception:
+            pass
     finally:
         try:
             m.ordre("Addon:Uninstall", {"id": prova.ID})

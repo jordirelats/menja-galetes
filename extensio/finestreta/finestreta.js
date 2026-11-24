@@ -276,7 +276,7 @@ async function pinta() {
   if (emp) files.push(["Empremta", emp.falsa, emp.real, ""]);
   const ipReal = e.ipReal || "la real";
   if (f.ipScripts && d.ip) files.push(["IP scripts", `${d.ip} (de ningú)`, ipReal, "ip"]);
-  if (f.ipCapcaleres && d.ip) files.push(["IP capçal.", `${d.ip} (de ningú)`, "cap", "ip"]);
+  if (f.ipCapcaleres && d.ip) files.push(["IP capçal.", `${d.ip} (de ningú, als tercers)`, "cap", "ip"]);
   files.push(["IP connexió", ipReal, "la mateixa", "ip real"]);
   const fitxa = h("div.fitxa", h("div.th", "Què"), h("div.th", "Es pensa"), h("div.th", "Veritat"));
   for (const [q, fals, ver, c] of files) {

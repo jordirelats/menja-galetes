@@ -21,6 +21,10 @@ const ID_SCRIPT = "menja-galetes";
 // Les regles de cada web (vegeu reglesLloc) fan servir números d'aquí en amunt; les de les pestanyes,
 // tabId + 1000. Cada web té el seu número, desat (numLloc), sense col·lisions.
 const PRIMER_ID_LLOC = 1000000000, MAX_LLOCS = 600;
+// La IP falsa (X-Forwarded-For) de cada web i de cada pestanya va en una regla a part, amb aquest número
+// més, perquè només s'aplica als tercers (vegeu ipFalsaDe).
+const DESPL_IP = 500000000;
+const ambIp = (ids) => ids.flatMap((id) => [id, id + DESPL_IP]);
 let numLloc = {};             // lloc (o «h:host») -> {id, t}
 let disfressesDia = "";
 
@@ -199,9 +203,21 @@ function capcaleresDe(host) {
     hs.push({ header: "sec-ch-ua-mobile", operation: "set", value: "?0" });
   }
   if (f.idioma && d.acceptLanguage) hs.push({ header: "accept-language", operation: "set", value: d.acceptLanguage });
-  if (f.ipCapcaleres && d.ip) hs.push({ header: "x-forwarded-for", operation: "set", value: d.ip });
   return hs.length ? hs : null;
 }
+
+// La IP falsa de X-Forwarded-For d'un web, o null. Va només als tercers (els rastrejadors): el web que
+// visites ja veu la de debò per la connexió, i si es creu la capçalera la fa servir per a coses seves (el
+// país, contra els robots…) i pot deixar de funcionar. El 24/11/2026, l'API de GLS responia «Expedition
+// search forbidden».
+function ipFalsaDe(host) {
+  const lloc = MG.lloc(host);
+  if (!cfg.actiu || !lloc || esReal(host) || !cfg.falseja.ipCapcaleres) return null;
+  return disfressaDe(lloc).ip || null;
+}
+const reglaIp = (id, lloc, ip, condicio) => ({ id, priority: 1,
+  action: { type: "modifyHeaders", requestHeaders: [{ header: "x-forwarded-for", operation: "set", value: ip }] },
+  condition: { ...condicio, excludedRequestDomains: [lloc] } });
 
 // El número de les regles d'un web (o d'un host, «h:…»). Si n'hi ha massa, es treuen les del més vell.
 let desantNums = null;
@@ -219,7 +235,7 @@ async function idDe(clau, crea = true) {
     const idVell = numLloc[vell].id;
     delete numLloc[vell];
     try { await chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds: [idVell] }); } catch (e) { /* res */ }
-    try { await chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds: [idVell] }); } catch (e) { /* res */ }
+    try { await chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds: ambIp([idVell]) }); } catch (e) { /* res */ }
   }
   desaNums();
   return id;
@@ -229,22 +245,24 @@ async function idDe(clau, crea = true) {
 // petició del document ja surt disfressada: la de la pestanya arribaria tard), i les peticions que el
 // web fa sense pestanya (el seu service worker, els treballadors compartits).
 function reglesDe(lloc, id) {
-  const hs = capcaleresDe(lloc);
-  if (!hs) return { dinamiques: [], sessio: [] };
-  const accio = { type: "modifyHeaders", requestHeaders: hs };
-  return {
-    dinamiques: [{ id, priority: 2, action: accio, condition: { requestDomains: [lloc], resourceTypes: ["main_frame"] } }],
-    sessio: [{ id, priority: 1, action: accio, condition: { tabIds: [-1], initiatorDomains: [lloc], resourceTypes: TOTS } }],
-  };
+  const hs = capcaleresDe(lloc), ip = ipFalsaDe(lloc);
+  const r = { dinamiques: [], sessio: [] };
+  if (hs) {
+    const accio = { type: "modifyHeaders", requestHeaders: hs };
+    r.dinamiques.push({ id, priority: 2, action: accio, condition: { requestDomains: [lloc], resourceTypes: ["main_frame"] } });
+    r.sessio.push({ id, priority: 1, action: accio, condition: { tabIds: [-1], initiatorDomains: [lloc], resourceTypes: TOTS } });
+  }
+  if (ip) r.sessio.push(reglaIp(id + DESPL_IP, lloc, ip, { tabIds: [-1], initiatorDomains: [lloc], resourceTypes: TOTS }));
+  return r;
 }
 async function reglesLloc(lloc) {
   if (!lloc) return;
-  const real = !capcaleresDe(lloc);
+  const real = !capcaleresDe(lloc) && !ipFalsaDe(lloc);
   const id = await idDe(lloc, !real);
   if (id === null) return;
   const { dinamiques, sessio } = reglesDe(lloc, id);
   try { await chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds: [id], addRules: dinamiques }); } catch (e) { /* res */ }
-  try { await chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds: [id], addRules: sessio }); } catch (e) { /* res */ }
+  try { await chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds: ambIp([id]), addRules: sessio }); } catch (e) { /* res */ }
 }
 // Un host que va sense disfressa dins d'un web que sí que en porta (sede.exemple.com): el seu
 // document, tal qual.
@@ -266,7 +284,7 @@ async function totesReglesLloc() {
     sessio.push(...rs.sessio);
   }
   try { await chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds: ids, addRules: dinamiques }); } catch (e) { /* res */ }
-  try { await chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds: ids, addRules: sessio }); } catch (e) { /* res */ }
+  try { await chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds: ambIp(ids), addRules: sessio }); } catch (e) { /* res */ }
 }
 
 // La disfressa de les capçaleres d'una pestanya: la regla de la pestanya (tot menys el document,
@@ -275,8 +293,11 @@ async function capcaleres(tabId, host) {
   const id = tabId + 1000;
   const lloc = MG.lloc(host);
   const hs = lloc ? capcaleresDe(host) : null;
-  const afegeix = hs ? [{ id, priority: 1, action: { type: "modifyHeaders", requestHeaders: hs }, condition: { tabIds: [tabId], resourceTypes: SENSE_DOCUMENT } }] : [];
-  try { await chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds: [id], addRules: afegeix }); } catch (e) { /* res */ }
+  const ip = lloc ? ipFalsaDe(host) : null;
+  const afegeix = [];
+  if (hs) afegeix.push({ id, priority: 1, action: { type: "modifyHeaders", requestHeaders: hs }, condition: { tabIds: [tabId], resourceTypes: SENSE_DOCUMENT } });
+  if (ip) afegeix.push(reglaIp(id + DESPL_IP, lloc, ip, { tabIds: [tabId], resourceTypes: SENSE_DOCUMENT }));
+  try { await chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds: ambIp([id]), addRules: afegeix }); } catch (e) { /* res */ }
   if (lloc) await reglesLloc(lloc);
   if (lloc && host !== lloc && esReal(host) && !esReal(lloc)) await excepcioHost(host);
 }
@@ -849,7 +870,7 @@ chrome.tabs.onReplaced.addListener(async (nova, vella) => {
   await llest;
   const p = pestanyes.get(vella);
   pestanyes.delete(vella);
-  try { await chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds: [vella + 1000] }); } catch (e) { /* res */ }
+  try { await chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds: ambIp([vella + 1000]) }); } catch (e) { /* res */ }
   try {
     const t = await chrome.tabs.get(nova);
     const host = hostDe(t.url || "");
@@ -879,7 +900,7 @@ chrome.tabs.onRemoved.addListener(async (tabId) => {
   const p = pestanyes.get(tabId);
   pestanyes.delete(tabId);
   desaPestanyes();
-  try { await chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds: [tabId + 1000] }); } catch (e) { /* res */ }
+  try { await chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds: ambIp([tabId + 1000]) }); } catch (e) { /* res */ }
   if (p && p.lloc) potserMenja(p.lloc);
 });
 

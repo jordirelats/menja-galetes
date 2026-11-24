@@ -130,8 +130,13 @@ try {
   eco["X-Forwarded-For"] = eco["x-forwarded-for"];
   comprova("User-Agent de la capçalera = el de la pàgina", eco["User-Agent"] === i1.userAgent, eco["User-Agent"]);
   comprova("Accept-Language en castellà", String(eco["Accept-Language"]).startsWith("es"), eco["Accept-Language"]);
-  const xff = String(eco["X-Forwarded-For"] || "0.0.0.0").split(".");
-  comprova("X-Forwarded-For: una IP de ningú (100.64.0.0/10)", xff[0] === "100" && +xff[1] >= 64 && +xff[1] <= 127, eco["X-Forwarded-For"]);
+  // La IP falsa de X-Forwarded-For només va als tercers: al web que visites, no (GLS, 24/11/2026).
+  comprova("X-Forwarded-For: el web que visites no la rep", !eco["X-Forwarded-For"], eco["X-Forwarded-For"]);
+  const eco3Cru = JSON.parse(await aPagina("fetch('http://diari.test:8775/eco').then((r) => r.text(), () => '{}')"));
+  const eco3 = {};
+  for (const [k, v] of Object.entries(eco3Cru)) eco3[k.toLowerCase()] = v;
+  const xff = String(eco3["x-forwarded-for"] || "0.0.0.0").split(".");
+  comprova("X-Forwarded-For: un tercer rep una IP de ningú (100.64.0.0/10)", xff[0] === "100" && +xff[1] >= 64 && +xff[1] <= 127, eco3["x-forwarded-for"]);
   comprova("Sec-CH-UA-Platform de la disfressa", /Windows|macOS/.test(eco["sec-ch-ua-platform"] || eco["Sec-CH-UA-Platform"] || ""), eco["sec-ch-ua-platform"]);
   await ves(`${WEB}/sw-prova`, 2500);
   const swi = await info();
