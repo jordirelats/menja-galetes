@@ -35,6 +35,9 @@ let pestanyes = new Map();   // tabId -> {lloc, origens:[], galetes:[], funciona
 const disfresses = new Map();
 let llocsProtegits = new Set();
 let scriptsUsuari = null;
+// Per què ha fallat l'últim registre del codi de pàgina (el missatge del navegador), o null.
+let errorScripts = null;
+let errorDesat = null;
 // Les galetes velles: quan vas per última vegada a cada web (vegeu menjaVelles).
 let visites = {};
 let visitesDesDe = Date.now();
@@ -97,9 +100,15 @@ async function fesRegistra() {
   scriptsUsuari = await provaRegistra();
   await chrome.storage.session.set({ scriptsUsuari });
   insignia();
+  // L'error es queda desat, per saber què ha passat quan algú diu que li surt l'avís del permís.
+  if (!scriptsUsuari && errorScripts !== errorDesat) {
+    errorDesat = errorScripts;
+    await chrome.storage.local.set({ errorScripts: { missatge: errorScripts, versio: chrome.runtime.getManifest().version, quan: Date.now() } });
+  }
 }
 async function provaRegistra() {
-  if (!chrome.userScripts) return false;
+  errorScripts = null;
+  if (!chrome.userScripts) { errorScripts = "chrome.userScripts no hi és"; return false; }
   const codi = `(function () {\n${codiComu}\n;(${codiPagina.trim()})(MG, ${JSON.stringify(perAPagina())});\n})();`;
   try {
     const ara = await chrome.userScripts.getScripts({ ids: [ID_SCRIPT] });
@@ -113,8 +122,24 @@ async function provaRegistra() {
     else await chrome.userScripts.register([nou]);
     return true;
   } catch (e) {
-    return false;   // l'interruptor «Permet els scripts d'usuari» és apagat
+    // Normalment, l'interruptor «Permet els scripts d'usuari» és apagat (vegeu recarregaUnCop).
+    errorScripts = (e && e.message) || String(e);
+    return false;
   }
+}
+
+// Després d'una actualització de la botiga, el Vivaldi de vegades no deixa registrar el codi de pàgina
+// fins que es reinicia, encara que l'interruptor sigui encès (24/11/2026, amb la 0.9.2 i la 0.9.3).
+// Mentrestant, la disfressa va a mitges. Es prova de tornar a carregar l'extensió, que potser ho arregla
+// com reiniciar-lo (no s'ha pogut reproduir; si no, cal apagar i tornar a encendre l'interruptor). Només
+// un cop per versió: si l'interruptor és apagat de debò, no hi ha bucle. L'error queda a errorScripts.
+async function recarregaUnCop() {
+  const versio = chrome.runtime.getManifest().version;
+  const { recarregadaPer } = await chrome.storage.local.get("recarregadaPer");
+  if (recarregadaPer === versio) return false;
+  await chrome.storage.local.set({ recarregadaPer: versio, recarregant: true });
+  chrome.runtime.reload();
+  return true;
 }
 
 // Mentre falti el permís (i l'extensió és encesa), la icona porta un «!» vermell.
@@ -683,6 +708,7 @@ async function tracta(m, sender) {
       const p = pestanyes.get(m.tabId) || {};
       const { ipReal, coloReal } = await chrome.storage.local.get(["ipReal", "coloReal"]);
       return { ipReal: ipReal || null, coloReal: coloReal || null, cfg: perAPagina(), confiancaUsuari: cfg.confianca, realAuto: cfg.realAuto, scriptsUsuari,
+        errorScripts: scriptsUsuari === false ? errorScripts : null,
         lloc: p.lloc || m.lloc || "", galetes: p.galetes || [], funcionament: p.funcionament || [], avis: p.avis || null,
         gravadors: p.gravadors || [], espies: p.espies || [], espiesN: p.espiesN || 0,
         resum: resumEstat.resum && resumEstat.resum.setmana === MG.setmana() ? resumEstat.resum : null,
@@ -806,8 +832,15 @@ chrome.runtime.onInstalled.addListener(async (d) => {
     if (velles.length) await chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds: velles });
   } catch (e) { /* res */ }
   await registra();
+  if (d.reason !== "install" && scriptsUsuari === false && await recarregaUnCop()) return;
   // Sense el permís «Permet els scripts d'usuari» no hi ha disfressa: la benvinguda explica com donar-lo.
   if (d.reason === "install" && scriptsUsuari === false) chrome.tabs.create({ url: chrome.runtime.getURL("benvinguda/benvinguda.html") });
+  await posaAlDia();
+});
+
+// Les regles i les capçaleres de les pestanyes obertes, de nou (en instal·lar-la, en actualitzar-la i
+// després de recarregaUnCop).
+async function posaAlDia() {
   await regles();
   await totesReglesLloc();
   for (const t of await chrome.tabs.query({})) {
@@ -815,6 +848,15 @@ chrome.runtime.onInstalled.addListener(async (d) => {
     if (host) { estatPestanya(t.id, MG.lloc(host), new URL(t.url).origin); await capcaleres(t.id, host); }
   }
   comprovaPais();
+}
+
+// Després de recarregaUnCop: les regles de sessió (les capçaleres de cada pestanya) s'han perdut, i
+// potser onInstalled no arriba (una extensió desempaquetada sí que el rep, amb «update»).
+llest.then(async () => {
+  if (!(await chrome.storage.local.get("recarregant")).recarregant) return;
+  await chrome.storage.local.remove("recarregant");
+  await registra();
+  await posaAlDia();
 });
 
 chrome.runtime.onStartup.addListener(async () => {

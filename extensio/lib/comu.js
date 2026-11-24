@@ -479,6 +479,11 @@ MG.textResum = function (r) {
   return (emp ? `Galetes: ${emp}.` : "") + (cua ? ` També m'he menjat ${cua}.` : "");
 };
 
+// «de» davant d'un nom, amb l'apostrofació: «d'Estrasburg», «d'Hamburg», però «de Saragossa» i «de Iowa».
+MG.de = function (nom) {
+  return (/^h?[aeiouàáèéíïòóúü]/i.test(nom) && !/^h?[iu][aeiouàáèéíòóú]/i.test(nom) ? "d'" : "de ") + nom;
+};
+
 // El dia d'avui (AAAA-M-D, hora local): la clau de la disfressa «una al dia per a tots».
 MG.avui = function (ara = new Date()) { return `${ara.getFullYear()}-${ara.getMonth() + 1}-${ara.getDate()}`; };
 
@@ -869,7 +874,7 @@ MG.disfressa = function (cfg, lloc, real) {
     pantalla,
     nuclis, gpu: { nom: gpu[0], vendor: gpu[1], renderer: gpu[2] },
     ip, lat, lon, soroll,
-    nom: ciutat ? `Un ${so} de ${ciutat[0]}` : `Un ${so}`,
+    nom: ciutat ? `Un ${so} ${MG.de(ciutat[0])}` : `Un ${so}`,
   };
 };
 

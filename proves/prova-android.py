@@ -328,7 +328,7 @@ def main():
                  [fin["ample"], fin["finestra"]])
         comprova("els botons de baix, sempre a la vista", fin["peu"] == "sticky", fin["peu"])
         comprova("«Primera galeta: menjada»", "Primera galeta: menjada" in text)
-        comprova("es pensa que ets «Un Android de…»", re.search(r"Un Android de \w", text))
+        comprova("es pensa que ets «Un Android de…»", re.search(r"Un Android (de |d')\w", text))
         comprova("i explica la disfressa del mòbil", "un altre mòbil Android" in text)
         comprova("la pantalla: «la teva»", "la teva" in text)
         comprova("la veritat: Firefox · Android i la versió de debò", re.search(r"Firefox · Android \d+", text))

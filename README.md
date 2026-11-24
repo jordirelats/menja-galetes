@@ -98,6 +98,7 @@ Al Firefox de l'iPhone no es pot: no admet extensions.
 3. Clica «Carrega l'extensió desempaquetada» i tria la carpeta `construit/menja-galetes-chromium`.
 4. Obre els **detalls** de Menja galetes i activa **«Permet els scripts d'usuari»**. Sense això no et pot disfressar (les galetes, se les menja igualment).
    Quan la instal·les, si no el té, s'obre una pàgina de benvinguda amb el botó «Obre els detalls», que es posa verda sola quan l'actives. Mentre falti, la icona porta un «!» i la finestreta t'ho recorda.
+   Si ja és activat i la finestreta continua dient que falta, desactiva'l i torna'l a activar (o reinicia el navegador). Al Vivaldi passa de vegades després d'una actualització de la botiga: l'extensió es torna a carregar sola un cop per provar d'arreglar-ho, i la finestreta ensenya què diu el navegador.
 
 Instal·lada així, s'hi queda encara que tanquis el navegador. Si la tornes a muntar, clica el botó de tornar a carregar de l'extensió.
 
@@ -118,9 +119,12 @@ Al Chromium, l'extensió fa el mateix que al Firefox, amb aquestes diferències:
 - `chromium/`: la versió per al Vivaldi, el Chrome i el Brave (Manifest V3). `fons.js` és un *service worker* que fa servir `declarativeNetRequest`, `userScripts` i `cookies`; `pagina.js` és el codi de pàgina (al món MAIN); `contingut.js` respon els avisos i detecta les pàgines amb contrasenya. La finestreta, les opcions i `lib/comu.js` són els mateixos del Firefox: `eines/construeix-chromium.py` ho ajunta tot.
 - `proves/prova.py`: obre un Firefox a part, sense finestra, amb un perfil temporal, i fa 162 proves contra un servidor local. Només fa servir Python i el protocol Marionette del Firefox: `python3 proves/prova.py`.
 - `proves/prova-chromium.mjs`: el mateix amb un Vivaldi a part (88 proves), controlat amb el protocol DevTools des del Node: `node proves/prova-chromium.mjs`. Amb `NAVEGADOR=chrome`, les fa amb el Google Chrome (que, des de la versió 137, s'hi carrega amb l'ordre `Extensions.loadUnpacked` del protocol).
+- `proves/prova-actualitzacio.mjs`: què fa la versió del Chromium quan s'actualitza (14 proves). Fa una còpia de l'extensió, li canvia el número de versió i la torna a carregar, una vegada amb el permís i una sense: `node proves/prova-actualitzacio.mjs` (també amb `NAVEGADOR=chrome`). `proves/prova-benvinguda.mjs` prova la pàgina de benvinguda (14).
 - `proves/prova-android.py`: les proves del Firefox d'Android (38), en un mòbil virtual de l'emulador d'Android, amb el Firefox oficial de Mozilla. També es controla amb Marionette, que el Firefox d'Android obre si un fitxer de configuració de GeckoView ho demana.
 
 Si un web no va bé amb l'extensió, `node proves/diagnostica.mjs <adreça>` l'obre en un Vivaldi a part (o en un Chrome, amb `NAVEGADOR=chrome`), sense l'extensió i amb, i compara les recàrregues, els errors, les peticions que fallen i les respostes amb error. `APAGA=ipCapcaleres,idioma…` apaga parts de la disfressa per trobar quina el fa fallar, i `MOSTRA=<tros d'adreça>` ensenya què envia i què respon una petició.
+
+Per veure què té desat l'extensió en un Vivaldi o un Chrome sense obrir-lo, `python3 proves/llegeix-leveldb.py <fitxer .log> [clau]` llegeix les seves bases de dades (l'emmagatzematge de l'extensió, a `Local Extension Settings/<id>/`, i el codi de pàgina registrat, a `Extension Scripts/`).
 
 Si un web amb la verificació de Cloudflare («Just a moment…») no et deixa passar, `python3 proves/diagnostica-cloudflare.py <adreça>` l'obre en un Firefox a part, sense l'extensió i amb, i diu si passa. No fa servir Marionette, perquè Cloudflare no deixa passar els navegadors controlats.
 

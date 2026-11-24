@@ -95,6 +95,7 @@ try {
   await c.envia("Page.navigate", { url: `chrome-extension://${id}/finestreta/finestreta.html?web=${WEB}/primera` }, fin); await dorm(1800);
   const textFin = await ambTemps(c.avalua(fin, "document.body.innerText"));
   comprova("la finestreta diu que falta el permís, amb el botó «Obre els detalls»", textFin.includes("em falta un permís") && textFin.includes("Obre els detalls"));
+  comprova("i diu què ha dit el navegador", textFin.includes("El navegador diu: «"), textFin);
   await c.envia("Target.closeTarget", { targetId: fT });
 
   console.log("\n3. Obre els detalls i encén l'interruptor");

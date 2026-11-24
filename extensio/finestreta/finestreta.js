@@ -77,7 +77,7 @@ function ubicacioReal(paisIP, colo) {
   let pais = p ? p.nom.replace(/^(el|els|l')\s?/, "") : (paisIP || "");
   pais = pais.charAt(0).toUpperCase() + pais.slice(1);
   const ciutat = CIUTATS_COLO[colo];
-  return ciutat ? `${pais}, a prop de ${ciutat}` : (pais || "no la sé");
+  return ciutat ? `${pais}, a prop ${MG.de(ciutat)}` : (pais || "no la sé");
 }
 
 // La targeta gràfica de debò, tal com la diu el navegador (escurçada).
@@ -203,8 +203,10 @@ async function pinta() {
       window.close();
     });
     cos.append(h("div.nota-ip.permis", h("b", "Per disfressar-te, em falta un permís."),
-      " Obre els detalls de Menja galetes i activa «Permet els scripts d'usuari». Les galetes, me les menjo igualment.",
-      h("div", detalls)));
+      " Obre els detalls de Menja galetes i activa «Permet els scripts d'usuari». Si ja és activat, desactiva'l i torna'l a activar. Les galetes, me les menjo igualment.",
+      h("div", detalls),
+      // El que diu el navegador, per si l'interruptor ja és encès i continua sortint (vegeu recarregaUnCop).
+      e.errorScripts ? h("div.error-scripts", `El navegador diu: «${e.errorScripts}»`) : null));
   }
 
   if (confiat) {
