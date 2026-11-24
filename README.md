@@ -128,6 +128,15 @@ Per veure què té desat l'extensió en un Vivaldi o un Chrome sense obrir-lo, `
 
 Si un web amb la verificació de Cloudflare («Just a moment…») no et deixa passar, `python3 proves/diagnostica-cloudflare.py <adreça>` l'obre en un Firefox a part, sense l'extensió i amb, i diu si passa. No fa servir Marionette, perquè Cloudflare no deixa passar els navegadors controlats.
 
+## Publicar una versió
+
+Les versions es publiquen des de l'ordinador, sense obrir les botigues:
+- `python3 eines/publica-mozilla.py <paquet-firefox.zip>` la puja a addons.mozilla.org i l'envia a revisió, amb les notes de `publicacio/firefox-<versió>.md`. Fa servir una clau de l'API del compte de Mozilla de l'autor.
+- `python3 eines/publica-chrome.py <paquet-chromium.zip>` la puja a la Chrome Web Store i l'envia a revisió. Fa servir un compte de servei de Google Cloud lligat a la consola de la botiga.
+- Totes dues tenen `estat`, que diu en quin punt és cada versió.
+
+Les claus són a `~/.config/menja-galetes/`, que només pot llegir l'usuari, i no van mai al dipòsit.
+
 ## Llicència
 
 Tots els drets reservats. Pots instal·lar-la i fer-la servir, i llegir-ne el codi, però no modificar-la ni distribuir-ne versions modificades sense permís per escrit de l'autor. Vegeu [LICENSE](LICENSE).
