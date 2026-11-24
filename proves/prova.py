@@ -20,7 +20,7 @@ sys.path.insert(0, str(AQUI))
 from marionette import Marionette  # noqa: E402
 import servidor  # noqa: E402
 
-EXT = AQUI.parent / "extensio"
+EXT = Path(os.environ.get("MG_EXT") or AQUI.parent / "extensio")   # MG_EXT: provar una altra còpia
 CAPTURES = AQUI / "captures"
 ID = "menja-galetes@jordirelats"
 PORT_M = 28290
@@ -199,7 +199,7 @@ def main():
         'user_pref("network.dns.localDomains", "diari.test,www.bancprova.test,www.prova.gob.es,botiga.test,'
         'h.online-metrix.net,empresa.test,www.instagram.com,revista.test,amagat.test,bucle.test,static.hotjar.com,us1.list-manage.com,l.facebook.com,vell.test,premsa.test,vpn.test");',
     ]))
-    env = dict(os.environ, MOZ_HEADLESS="1")
+    env = dict(os.environ, MOZ_HEADLESS="1", MOZ_REMOTE_ALLOW_SYSTEM_ACCESS="1")   # el Firefox 159 també ho demana
     ff = subprocess.Popen(["firefox", "--headless", "--marionette", "-remote-allow-system-access", "--no-remote", "--profile", str(perfil)],
                           env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     try:
@@ -393,14 +393,23 @@ def main():
         for _ in range(20):
             time.sleep(0.3)
             tr = info_pagina(m)
-            if tr.get("fitxer") and tr.get("blob") and tr.get("compartit"):
+            if all(tr.get(q) for q in ("fitxer", "blob", "compartit", "revocat", "modul", "senseTipus", "script")):
                 break
         print("   ", json.dumps(tr, ensure_ascii=False)[:600])
-        for qui in ("fitxer", "blob", "compartit"):
+        # «revocat», «modul» i «senseTipus»: blobs que el web revoca de seguida, com fa la verificació de
+        # Cloudflare (24/11/2026).
+        for qui in ("fitxer", "blob", "compartit", "revocat", "modul", "senseTipus"):
             t = tr.get(qui) or {}
             comprova(f"treballador ({qui}): navegador falsejat", isinstance(t, dict) and t.get("ua") == tr.get("top"), t.get("ua") if isinstance(t, dict) else t)
             comprova(f"treballador ({qui}): zona i idioma del Japó", isinstance(t, dict) and t.get("zona") == "Asia/Tokyo"
                      and t.get("offset") == -540 and str(t.get("idioma")).startswith("ja"))
+        rv = tr.get("revocat") or {}
+        comprova("treballador de blob: corre a l'adreça que ha fet la pàgina", isinstance(rv, dict) and rv.get("adreca") == tr.get("adrecaRevocat"),
+                 f"{rv.get('adreca') if isinstance(rv, dict) else rv} · {tr.get('adrecaRevocat')}")
+        sc = tr.get("script") or {}
+        comprova("blob de JavaScript en un <script>: funciona i no hi canvia res", sc.get("fet") == 1 and sc.get("zona") == sc.get("zonaAbans")
+                 and str(sc.get("zona")).startswith("Asia/Tokyo"), json.dumps(sc))
+        comprova("URL.createObjectURL es diu igual", tr.get("nomCrea") == "createObjectURL", tr.get("nomCrea"))
 
         # ---- 8. Webs de confiança ----
         print("\n8. Web de confiança")

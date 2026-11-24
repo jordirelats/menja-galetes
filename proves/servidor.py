@@ -146,7 +146,8 @@ ENTRADA = """<!doctype html><html><head><meta charset="utf-8"><title>Entrada</ti
 
 
 INFO_TREBALLADOR = ("({ua: navigator.userAgent, nuclis: navigator.hardwareConcurrency, idioma: navigator.language, "
-                    "zona: Intl.DateTimeFormat().resolvedOptions().timeZone, offset: new Date().getTimezoneOffset()})")
+                    "zona: Intl.DateTimeFormat().resolvedOptions().timeZone, offset: new Date().getTimezoneOffset(), "
+                    "adreca: String(location.href)})")
 
 ZONA = """<!doctype html><html><head><meta charset="utf-8"></head><body><pre id="info">...</pre><script>
 const r = {};
@@ -187,6 +188,26 @@ const r = {top: navigator.userAgent};
 const codi = "postMessage(" + %s + ")";
 new Worker('/w.js').onmessage = e => r.fitxer = e.data;
 new Worker(URL.createObjectURL(new Blob([codi], {type: 'text/javascript'}))).onmessage = e => r.blob = e.data;
+// Com fa Cloudflare: l'adreça del blob es revoca just després de crear el treballador (24/11/2026).
+const u1 = URL.createObjectURL(new Blob([codi], {type: 'text/javascript'}));
+const w1 = new Worker(u1); URL.revokeObjectURL(u1);
+w1.onmessage = e => r.revocat = e.data; w1.onerror = e => r.revocat = 'error';
+const u2 = URL.createObjectURL(new Blob([codi], {type: 'text/javascript'}));
+const w2 = new Worker(u2, {type: 'module'}); URL.revokeObjectURL(u2);
+w2.onmessage = e => r.modul = e.data; w2.onerror = e => r.modul = 'error';
+r.adrecaRevocat = u1;    // el treballador ha de córrer a l'adreça que ha fet la pàgina (Cloudflare ho mira)
+// Un blob sense tipus, també revocat de seguida.
+const u3 = URL.createObjectURL(new Blob([codi]));
+const w3 = new Worker(u3); URL.revokeObjectURL(u3);
+w3.onmessage = e => r.senseTipus = e.data; w3.onerror = e => r.senseTipus = 'error';
+// Un blob de JavaScript que va a un <script> de la pàgina: el codi del treballador no hi ha de fer res.
+const zonaAbans = Intl.DateTimeFormat().resolvedOptions().timeZone + ' ' + new Date(2024, 0, 15, 10, 30).getTimezoneOffset();
+const sc = document.createElement('script');
+sc.src = URL.createObjectURL(new Blob(['window.blobScript = 1;'], {type: 'text/javascript'}));
+sc.onload = () => r.script = {fet: window.blobScript,
+  zona: Intl.DateTimeFormat().resolvedOptions().timeZone + ' ' + new Date(2024, 0, 15, 10, 30).getTimezoneOffset(), zonaAbans};
+document.head.append(sc);
+r.nomCrea = URL.createObjectURL.name;
 try { const s = new SharedWorker('/sh.js'); s.port.onmessage = e => r.compartit = e.data; s.port.start(); } catch (e) { r.compartit = 'error ' + e; }
 setTimeout(() => document.getElementById('info').textContent = JSON.stringify(r), 2000);
 </script></body></html>""" % json.dumps(INFO_TREBALLADOR)

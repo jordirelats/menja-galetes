@@ -198,6 +198,17 @@ try {
   const tr = await info();
   const blob = tr.blob || {};
   comprova("treballador de blob: navegador i zona falsos", blob.ua === tr.top && blob.zona === "Asia/Tokyo", JSON.stringify(blob).slice(0, 120));
+  // Blobs que el web revoca just després de crear el treballador, com fa la verificació de Cloudflare.
+  for (const qui of ["revocat", "modul", "senseTipus"]) {
+    const t = tr[qui] || {};
+    comprova(`treballador de blob revocat (${qui}): funciona i va disfressat`, t.ua === tr.top && t.zona === "Asia/Tokyo", JSON.stringify(tr[qui]).slice(0, 120));
+  }
+  comprova("treballador de blob: corre a l'adreça que ha fet la pàgina", (tr.revocat || {}).adreca === tr.adrecaRevocat,
+    `${(tr.revocat || {}).adreca} · ${tr.adrecaRevocat}`);
+  const sc = tr.script || {};
+  comprova("blob de JavaScript en un <script>: funciona i no hi canvia res",
+    sc.fet === 1 && sc.zona === sc.zonaAbans && String(sc.zona).startsWith("Asia/Tokyo"), JSON.stringify(sc));
+  comprova("URL.createObjectURL es diu igual", tr.nomCrea === "createObjectURL", tr.nomCrea);
 
   // ---- 8. Web de confiança ----
   console.log("\n8. Web de confiança");

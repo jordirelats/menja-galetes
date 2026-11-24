@@ -1221,7 +1221,13 @@ MG.uaDades = function (G, d) {
 MG.codiTreballador = function (d, f) {
   const json = (o) => JSON.stringify(o).replace(/[\u007f-\uffff]/g, (c) => "\\u" + c.charCodeAt(0).toString(16).padStart(4, "0"));
   const ascii = (s) => s.replace(/[\u007f-\uffff]/g, (c) => "\\u" + c.charCodeAt(0).toString(16).padStart(4, "0"));
-  return ascii("(function(){try{var d=" + json(d) + ",f=" + json(f) + ",id=function(x){return x};" +
+  // Només dins d'un treballador, i només una vegada: el mateix blob de JavaScript també pot anar a un
+  // <script> de la pàgina, o un treballador disfressat el pot tornar a carregar amb importScripts().
+  return ascii("(function(){try{" +
+    "if(typeof WorkerGlobalScope!==\"function\"||!(self instanceof WorkerGlobalScope))return;" +
+    "var marca=Symbol.for(\"menja-galetes-treballador\");if(self[marca])return;" +
+    "Object.defineProperty(self,marca,{value:true});" +
+    "var d=" + json(d) + ",f=" + json(f) + ",id=function(x){return x};" +
     "var zonaReal=Intl.DateTimeFormat().resolvedOptions().timeZone;" +
     "var M={imul:Math.imul,floor:Math.floor},car=Function.prototype.call.bind(String.prototype.charCodeAt);" +
     "var sorolla=" + MG.sorolla.toString() + ";" +

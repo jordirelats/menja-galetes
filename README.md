@@ -18,7 +18,7 @@ Una extensió per al Firefox, el Vivaldi, el Chrome i el Brave que es menja la p
 
 La disfressa arriba també als llocs on els webs més espavilats van a buscar el navegador de debò:
 - **Els marcs que la pàgina crea** (`iframe`, `window[0]`, `innerHTML`, `window.open`) es disfressen en el moment que es creen, abans que la pàgina els pugui llegir.
-- **Els treballadors** (`Worker`, `SharedWorker` i service workers): els que són un fitxer reben la disfressa al començament de l'script mentre baixa, i els que la pàgina crea des d'un `blob:` es creen amb la disfressa a dins.
+- **Els treballadors** (`Worker`, `SharedWorker` i service workers): els que són un fitxer reben la disfressa al començament de l'script mentre baixa, i quan la pàgina fa l'adreça d'un `blob:` de JavaScript, l'adreça ja porta la disfressa al davant del codi. El treballador corre a l'adreça que ha fet la pàgina, encara que després la revoqui (com fa la verificació de Cloudflare).
 
 **IP falses on es pot.** Els scripts que pregunten la IP per WebRTC en reben una de falsa (als candidats, a `toJSON()`, a `getStats()`, i també les IPv6), i les peticions porten una IP falsa a `X-Forwarded-For`. Aquestes IP surten sempre de l'espai que els proveïdors fan servir per dins (`100.64.0.0/10`): semblen d'una connexió de debò, però no són de ningú, i no poden apuntar cap persona. La IP de la connexió és la real: una extensió no la pot canviar.
 
@@ -116,11 +116,13 @@ Al Chromium, l'extensió fa el mateix que al Firefox, amb aquestes diferències:
 - `extensio/sonda/`: la consulta del país (el trace de Cloudflare), des d'un marc amb `sandbox`. La VPN del Firefox (IP Protection) deixa fora les peticions de les extensions però no les dels marcs amb `sandbox`. Així, la disfressa és del país que veuen els webs.
 - `extensio/lib/monstre.js`: el mico, l'ós rentador i el bufó (`MG_personatges()`; per afegir-ne un, n'hi ha prou amb el dibuix). Es posa a la pàgina només quan cliques «Menja-te-les totes ara», dins d'una *shadow root* tancada i amb `element.animate()`, perquè ni els estils ni la CSP del web el puguin tocar.
 - `chromium/`: la versió per al Vivaldi, el Chrome i el Brave (Manifest V3). `fons.js` és un *service worker* que fa servir `declarativeNetRequest`, `userScripts` i `cookies`; `pagina.js` és el codi de pàgina (al món MAIN); `contingut.js` respon els avisos i detecta les pàgines amb contrasenya. La finestreta, les opcions i `lib/comu.js` són els mateixos del Firefox: `eines/construeix-chromium.py` ho ajunta tot.
-- `proves/prova.py`: obre un Firefox a part, sense finestra, amb un perfil temporal, i fa 151 proves contra un servidor local. Només fa servir Python i el protocol Marionette del Firefox: `python3 proves/prova.py`.
-- `proves/prova-chromium.mjs`: el mateix amb un Vivaldi a part (81 proves), controlat amb el protocol DevTools des del Node: `node proves/prova-chromium.mjs`. Amb `NAVEGADOR=chrome`, les fa amb el Google Chrome (que, des de la versió 137, s'hi carrega amb l'ordre `Extensions.loadUnpacked` del protocol).
+- `proves/prova.py`: obre un Firefox a part, sense finestra, amb un perfil temporal, i fa 161 proves contra un servidor local. Només fa servir Python i el protocol Marionette del Firefox: `python3 proves/prova.py`.
+- `proves/prova-chromium.mjs`: el mateix amb un Vivaldi a part (87 proves), controlat amb el protocol DevTools des del Node: `node proves/prova-chromium.mjs`. Amb `NAVEGADOR=chrome`, les fa amb el Google Chrome (que, des de la versió 137, s'hi carrega amb l'ordre `Extensions.loadUnpacked` del protocol).
 - `proves/prova-android.py`: les proves del Firefox d'Android (38), en un mòbil virtual de l'emulador d'Android, amb el Firefox oficial de Mozilla. També es controla amb Marionette, que el Firefox d'Android obre si un fitxer de configuració de GeckoView ho demana.
 
 Si un web no va bé amb l'extensió, `node proves/diagnostica.mjs <adreça>` l'obre en un Vivaldi a part, sense l'extensió i amb, i compara les recàrregues, els errors i les peticions que fallen.
+
+Si un web amb la verificació de Cloudflare («Just a moment…») no et deixa passar, `python3 proves/diagnostica-cloudflare.py <adreça>` l'obre en un Firefox a part, sense l'extensió i amb, i diu si passa. No fa servir Marionette, perquè Cloudflare no deixa passar els navegadors controlats.
 
 ## Llicència
 

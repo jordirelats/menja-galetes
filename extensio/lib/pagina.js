@@ -366,10 +366,51 @@ function MG_pagina(MG, cfg) {
 
     /* ---- 8. Els treballadors que la pàgina crea des d'un blob o un data: ----
      * Els que són un fitxer (/worker.js) els disfressa el fons, que afegeix el codi al
-     * començament de l'script mentre baixa. Aquests no passen per la xarxa: es
-     * fa un blob nou que porta la disfressa i després carrega el de la pàgina. */
+     * començament de l'script mentre baixa. Els de blob no passen per la xarxa: quan la
+     * pàgina fa l'adreça d'un blob de JavaScript (URL.createObjectURL), l'adreça que rep ja
+     * porta la disfressa al davant del seu codi. Així el treballador corre a l'adreça que la
+     * pàgina ha creat i no importa si després la revoca.
+     * (24/11/2026: abans es feia un blob nou en crear el treballador, que carregava el de la
+     * pàgina amb importScripts(). La verificació de Cloudflare revoca l'adreça 1 ms després de
+     * crear el treballador, i també comprova que el treballador corri a l'adreça que ella ha
+     * fet. Amb totes dues coses, no s'acabava mai.) */
     try {
-      const fesBlob = (codi) => W.URL.createObjectURL(new W.Blob(cloneInto([codi], win), cloneInto({ type: "text/javascript" }, win)));
+      const crea = W.URL.createObjectURL, revoca = W.URL.revokeObjectURL;
+      const llista = (...xs) => { const a = new W.Array(); for (const x of xs) a.push(x); return a; };
+      const blobJS = (codi, tipus) => new W.Blob(cloneInto([codi], win), cloneInto({ type: tipus || "text/javascript" }, win));
+      const fesBlob = (codi) => W.Reflect.apply(crea, W.URL, llista(blobJS(codi)));
+      // El constructor de debò (Xray), encara que la pàgina hagi canviat el seu.
+      const XHR = win.XMLHttpRequest;
+      const llegeix = (url) => {
+        try {
+          const x = new XHR();
+          x.open("GET", url, false);
+          x.send();
+          return x.status === 200 || x.status === 0 ? String(x.responseText) : null;
+        } catch (e) { return null; }
+      };
+      const disfressades = new Set();
+      if (typeof crea === "function") {
+        W.URL.createObjectURL = new W.Proxy(crea, ganxo({
+          apply: (t, ell, args) => {
+            try {
+              const obj = args[0];
+              const tipus = obj && typeof obj === "object" ? String(obj.type || "") : "";
+              if (/javascript|ecmascript/i.test(tipus)) {
+                const tmp = W.Reflect.apply(t, ell, args);
+                const codi = llegeix(tmp);
+                W.Reflect.apply(revoca, W.URL, llista(tmp));
+                if (codi !== null) {
+                  const u = W.Reflect.apply(t, ell, llista(blobJS(preludi + codi, tipus)));
+                  disfressades.add(String(u));
+                  return u;
+                }
+              }
+            } catch (e) { /* res */ }
+            return W.Reflect.apply(t, ell, args);
+          },
+        }));
+      }
       for (const nomC of ["Worker", "SharedWorker"]) {
         const C = W[nomC];
         if (!C) continue;
@@ -377,14 +418,19 @@ function MG_pagina(MG, cfg) {
           construct: (t, args, nt) => {
             try {
               const url = String(args[0]);
-              if (/^(blob|data):/i.test(url)) {
+              // Ja porta la disfressa, a l'adreça que ha fet la pàgina.
+              if (disfressades.has(url)) return W.Reflect.construct(t, args, nt);
+              // Un blob sense tipus o un data: es llegeix ara i va a un blob nou. (L'adreça
+              // canvia, però si la pàgina revoca la seva, el treballador continua funcionant.)
+              const codi = /^(blob|data):/i.test(url) ? llegeix(url) : null;
+              if (codi !== null) {
                 const opc = args.length > 1 ? args[1] : undefined;
                 const modul = !!opc && typeof opc === "object" && opc.type === "module";
+                // En un mòdul, la disfressa va en un import: els import s'executen abans que el cos.
                 const nou = modul
-                  ? fesBlob(`import ${JSON.stringify(fesBlob(preludi))};\nimport ${JSON.stringify(url)};\n`)
-                  : fesBlob(`${preludi}importScripts(${JSON.stringify(url)});\n`);
-                const pa = new W.Array();
-                pa.push(nou);
+                  ? fesBlob(`import ${JSON.stringify(fesBlob(preludi))};\n${codi}`)
+                  : fesBlob(preludi + codi);
+                const pa = llista(nou);
                 for (let i = 1; i < args.length; i++) pa.push(args[i]);
                 return W.Reflect.construct(t, pa, nt);
               }

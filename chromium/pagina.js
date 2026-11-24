@@ -335,10 +335,59 @@ function MG_pagina(MG, cfg) {
       }
     }
 
-    /* ---- 8. Els treballadors que la pàgina crea des d'un blob o un data: ---- */
+    /* ---- 8. Els treballadors que la pàgina crea des d'un blob o un data: ----
+     * Quan la pàgina fa l'adreça d'un blob de JavaScript (URL.createObjectURL), l'adreça que
+     * rep ja porta la disfressa al davant del seu codi. Així el treballador corre a l'adreça
+     * que la pàgina ha creat i no importa si després la revoca.
+     * (24/11/2026: abans es feia un blob nou en crear el treballador, que carregava el de la
+     * pàgina amb importScripts(). La verificació de Cloudflare revoca l'adreça 1 ms després de
+     * crear el treballador, i també comprova que el treballador corri a l'adreça que ella ha
+     * fet. Amb totes dues coses, no s'acabava mai.) */
     try {
-      const crearUrl = win.URL.createObjectURL;
-      const fesBlob = (codi) => crearUrl.call(win.URL, new win.Blob([codi], { type: "text/javascript" }));
+      const crea = win.URL.createObjectURL, revoca = win.URL.revokeObjectURL;
+      const BlobC = win.Blob;
+      const tipusDe = Object.getOwnPropertyDescriptor(BlobC.prototype, "type").get;
+      const crida = Function.prototype.call.bind(Function.prototype.call);
+      const blobJS = (codi, tipus) => new BlobC([codi], { type: tipus || "text/javascript" });
+      const fesBlob = (codi) => crida(crea, win.URL, blobJS(codi));
+      // Les peces de l'XMLHttpRequest, guardades ara, abans que la pàgina les pugui canviar.
+      const XHR = win.XMLHttpRequest;
+      const xP = XHR.prototype;
+      const xObre = xP.open, xEnvia = xP.send;
+      const xEstat = Object.getOwnPropertyDescriptor(xP, "status").get;
+      const xText = Object.getOwnPropertyDescriptor(xP, "responseText").get;
+      const llegeix = (url) => {
+        try {
+          const x = new XHR();
+          crida(xObre, x, "GET", url, false);
+          crida(xEnvia, x);
+          const estat = crida(xEstat, x);
+          return estat === 200 || estat === 0 ? String(crida(xText, x)) : null;
+        } catch (e) { return null; }
+      };
+      const disfressades = new Set();
+      if (typeof crea === "function") {
+        win.URL.createObjectURL = new win.Proxy(crea, {
+          apply: (t, ell, args) => {
+            try {
+              const obj = args[0];
+              let tipus = "";
+              try { tipus = String(crida(tipusDe, obj)); } catch (e) { /* no és un blob */ }
+              if (/javascript|ecmascript/i.test(tipus)) {
+                const tmp = Reflect.apply(t, ell, args);
+                const codi = llegeix(tmp);
+                crida(revoca, win.URL, tmp);
+                if (codi !== null) {
+                  const u = Reflect.apply(t, ell, [blobJS(preludi + codi, tipus)]);
+                  disfressades.add(String(u));
+                  return u;
+                }
+              }
+            } catch (e) { /* res */ }
+            return Reflect.apply(t, ell, args);
+          },
+        });
+      }
       for (const nomC of ["Worker", "SharedWorker"]) {
         const C = win[nomC];
         if (!C) continue;
@@ -346,12 +395,18 @@ function MG_pagina(MG, cfg) {
           construct: (t, args, nt) => {
             try {
               const url = String(args[0]);
-              if (/^(blob|data):/i.test(url)) {
+              // Ja porta la disfressa, a l'adreça que ha fet la pàgina.
+              if (disfressades.has(url)) return Reflect.construct(t, args, nt);
+              // Un blob sense tipus o un data: es llegeix ara i va a un blob nou. (L'adreça
+              // canvia, però si la pàgina revoca la seva, el treballador continua funcionant.)
+              const codi = /^(blob|data):/i.test(url) ? llegeix(url) : null;
+              if (codi !== null) {
                 const opc = args.length > 1 ? args[1] : undefined;
                 const modul = !!opc && typeof opc === "object" && opc.type === "module";
+                // En un mòdul, la disfressa va en un import: els import s'executen abans que el cos.
                 const nou = modul
-                  ? fesBlob(`import ${JSON.stringify(fesBlob(preludi))};\nimport ${JSON.stringify(url)};\n`)
-                  : fesBlob(`${preludi}importScripts(${JSON.stringify(url)});\n`);
+                  ? fesBlob(`import ${JSON.stringify(fesBlob(preludi))};\n${codi}`)
+                  : fesBlob(preludi + codi);
                 return Reflect.construct(t, [nou, ...Array.prototype.slice.call(args, 1)], nt);
               }
             } catch (e) { /* res */ }
